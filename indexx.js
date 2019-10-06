@@ -8,22 +8,26 @@ frameRate(0);
 
 var y = 0;      // Y Pos
 var z = 0.25;   // ZOOM
-var zR =32;      // ZOOM RECIPROCAL
+var zR =32;     // ZOOM RECIPROCAL
 var t = 0;      // time [ms of song]
 var d = 3;      // divisor
 var to = 0;     // start time offset (tp.t)
 var yo = 500;   // y offset (visual)
 var yt = 0;     // y translate (beat)
 var yc = 0;     // y correction (when pointer is misaligned with divisors)
+var fy = 0;    // first line y (correction for hovering)
 var fl = 0;     // first line (calculation)
 var ll = 0;     // last line (calculation)
-var tp = {              // using one timing point for now
+var tp = {                  // using one timing point for now
     t: 200,     // start time of timing point
     bpm: 176,   // bpm of timing point
     speed: 100, // slider velocity
 };
-var mspb = 60000/tp.bpm; // milliseconds per beat
+var mspb = 60000/tp.bpm;    // milliseconds per beat
 
+var SNAPPING_MODE = "round";
+
+var mp = false;
 var tile = getImage("cute/PlainBlock");
 
 var colors = {
@@ -54,12 +58,19 @@ Column.prototype.draw = function() {
             continue;
         }
         if(YRP <= 0){
+            fy = YRP;// + mspb/d*z;
             break;
         }
         stroke(colors[d][Math.abs(j) % d]);
         line(this.LB, YRP, this.RB, YRP);
         
-        text((to+(j/d)*mspb), (this.LB+this.RB)>>1, YRP-6);
+        //text((to+(j/d)*mspb), this.x, YRP-6);
+    }
+    noStroke();
+    fill(0);
+    for(var j = 0; j < this.notes.length; j ++){
+        var YRP = yo - (this.notes[j] + (d-1)*(to-t)/d - (t+to) - yt*mspb) * z;
+        rect(this.x, YRP-4, this.w, 8);
     }
 };
 Column.prototype.checkPlacement = function(){
@@ -70,7 +81,21 @@ Column.prototype.checkPlacement = function(){
         
         //image(tile, this.x, (Math.floor((mouseY) /mspb/z*d)+yc) *mspb*z/d + (yo%(mspb*z/d)) - this.th/2, this.w, this.th);
         
-        text((yo - mouseY)/z - yt*mspb - (d-1)*(to-t)/d + to+t, mouseX, mouseY-15);
+        var mouseMS = (yo - mouseY)/z - yt*mspb - (d-1)*(to-t)/d + to+t;
+        
+        text(mouseMS, mouseX, mouseY-15);
+        //text(Math[SNAPPING_MODE](mouseMS/mspb*d)*mspb/d, mouseX, mouseY-25);
+        
+        rect(this.x, Math[SNAPPING_MODE]((mouseY-fy) / (mspb*z/d)) * (mspb/d*z) + fy - 4, this.w, 8);
+        
+        //text(Math[SNAPPING_MODE]((mouseY-fy) / (mspb*z/d)) * (mspb/d*z) + fy, mouseX, mouseY+15);
+        
+        if(mp){
+            this.notes.push(Math[SNAPPING_MODE](mouseMS/mspb*d)*mspb/d);
+            //this.notes.sort(function(a,b){return a-b});
+            mp = false;
+        }
+        
         line(mouseX-15, mouseY, mouseX-5, mouseY);
         line(mouseX+15, mouseY, mouseX+5, mouseY);
     }
@@ -90,6 +115,9 @@ textAlign(CENTER, CENTER);
 rectMode(CENTER);
 imageMode(CENTER);
 
+var mousePressed = function(){
+    mp = true;
+};
 var keyPressed = function(){
     if(keyCode === RIGHT){
         yt = Math.floor(yt * d - 1/d) / d;
@@ -136,6 +164,7 @@ var draw = function() {
     
     //t += millis() - lastFrameMS;
     lastFrameMS = millis();
+    mp = false;
 };
 
 enableContextMenu();
