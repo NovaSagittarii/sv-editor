@@ -147,8 +147,8 @@ var lastFrameMS = millis();
 var draw = function() {
     background(255, 255, 255);
     
-    fl = Math.round(-yt*d + t/mspb) - 10;
-    ll = Math.round(-yt*d + t/mspb) + 100;
+    fl = Math.round(-yt + t/mspb)*d - 10;
+    ll = Math.round(-yt + t/mspb)*d + 100;
     
     for(var i = 0; i < C.length; i ++){
         C[i].draw();
