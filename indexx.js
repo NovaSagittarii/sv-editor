@@ -8,7 +8,7 @@ frameRate(0);
 
 var y = 0;      // Y Pos
 var z = 0.25;   // ZOOM
-var zR =32;     // ZOOM RECIPROCAL
+var zR =64;     // ZOOM RECIPROCAL
 var t = 0;      // time [ms of song]
 var d = 3;      // divisor
 var to = 0;     // start time offset (tp.t)
@@ -69,8 +69,9 @@ Column.prototype.draw = function() {
     noStroke();
     fill(0);
     for(var j = 0; j < this.notes.length; j ++){
-        var YRP = yo - (this.notes[j] + (d-1)*(to-t)/d - (t+to) - yt*mspb) * z;
+        var YRP = yo - (this.notes[j] - (t+to) + yt*mspb) * z;
         rect(this.x, YRP-4, this.w, 8);
+        //text(this.notes[j], this.x, YRP-15);
     }
 };
 Column.prototype.checkPlacement = function(){
@@ -81,9 +82,9 @@ Column.prototype.checkPlacement = function(){
         
         //image(tile, this.x, (Math.floor((mouseY) /mspb/z*d)+yc) *mspb*z/d + (yo%(mspb*z/d)) - this.th/2, this.w, this.th);
         
-        var mouseMS = (yo - mouseY)/z - yt*mspb - (d-1)*(to-t)/d + to+t;
+        var mouseMS = (yo - mouseY)/z - yt*mspb + to+t;
         
-        text(mouseMS, mouseX, mouseY-15);
+        text(~~mouseMS, mouseX, mouseY-15);
         //text(Math[SNAPPING_MODE](mouseMS/mspb*d)*mspb/d, mouseX, mouseY-25);
         
         rect(this.x, Math[SNAPPING_MODE]((mouseY-fy) / (mspb*z/d)) * (mspb/d*z) + fy - 4, this.w, 8);
@@ -133,10 +134,10 @@ var keyPressed = function(){
     }
     switch(keyCode){
         case 189: // -
-            z = 8 / (++ zR);
+            z = 16 / (++ zR);
             break;
         case 187: // =
-            z = 8 / (-- zR);
+            z = 16 / (-- zR);
     }
     d = constrain(d, 1, 4);
     yc = -yt%(1/d)*d;
@@ -163,6 +164,7 @@ var draw = function() {
     text(this.__frameRate.toFixed(1) + "fps", 350, 415);
     
     //t += millis() - lastFrameMS;
+    t++;
     lastFrameMS = millis();
     mp = false;
 };
