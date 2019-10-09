@@ -1,7 +1,7 @@
 /**
- * 
+ *
  * physics style equation ptsd intensifies ;_;
- * 
+ *
  */
 
 frameRate(0);
@@ -63,13 +63,19 @@ Column.prototype.draw = function() {
         }
         stroke(colors[d][Math.abs(j) % d]);
         line(this.LB, YRP, this.RB, YRP);
-        
+
         //text((to+(j/d)*mspb), this.x, YRP-6);
     }
     noStroke();
     fill(0);
     for(var j = 0; j < this.notes.length; j ++){
         var YRP = yo - (this.notes[j] - (t+to) + yt*mspb) * z;
+        if(YRP > height){
+            continue;
+        }
+        if(YRP <= 0){
+            break;
+        }
         rect(this.x, YRP-4, this.w, 8);
         //text(this.notes[j], this.x, YRP-15);
     }
@@ -79,24 +85,24 @@ Column.prototype.checkPlacement = function(){
         stroke(0, 0, 0, 100);
         fill(0, 0, 0, 150 + Math.cos(frameCount/16)*20);
         //rect(this.x, Math.floor((mouseY+7.5) /mspb/z*d) *mspb*z/d + (yo%(mspb*z/d)) - 7.5, this.w, 15);
-        
+
         //image(tile, this.x, (Math.floor((mouseY) /mspb/z*d)+yc) *mspb*z/d + (yo%(mspb*z/d)) - this.th/2, this.w, this.th);
-        
+
         var mouseMS = (yo - mouseY)/z - yt*mspb + to+t;
-        
+
         text(~~mouseMS, mouseX, mouseY-15);
         //text(Math[SNAPPING_MODE](mouseMS/mspb*d)*mspb/d, mouseX, mouseY-25);
-        
+
         rect(this.x, Math[SNAPPING_MODE]((mouseY-fy) / (mspb*z/d)) * (mspb/d*z) + fy - 4, this.w, 8);
-        
+
         //text(Math[SNAPPING_MODE]((mouseY-fy) / (mspb*z/d)) * (mspb/d*z) + fy, mouseX, mouseY+15);
-        
+
         if(mp){
             this.notes.push(Math[SNAPPING_MODE](mouseMS/mspb*d)*mspb/d);
             //this.notes.sort(function(a,b){return a-b});
             mp = false;
         }
-        
+
         line(mouseX-15, mouseY, mouseX-5, mouseY);
         line(mouseX+15, mouseY, mouseX+5, mouseY);
     }
@@ -146,10 +152,10 @@ var keyPressed = function(){
 var lastFrameMS = millis();
 var draw = function() {
     background(255, 255, 255);
-    
+
     fl = Math.round(-yt + t/mspb)*d - 10;
     ll = Math.round(-yt + t/mspb)*d + 100;
-    
+
     for(var i = 0; i < C.length; i ++){
         C[i].draw();
         C[i].checkPlacement();
@@ -159,10 +165,10 @@ var draw = function() {
     line(LB_C, yo+1, RB_C, yo+1);
     noStroke();
     fill(0, 0, 0, 255);
-    rect(ZERO_CP, yo-(to-t+(yt*d)*mspb)/d*z, ZERO_W, 3);
+    rect(ZERO_CP, yo-(to-t*d+(yt*d)*mspb)/d*z, ZERO_W, 3);
     text("Z="+zR, 350, 400);
     text(this.__frameRate.toFixed(1) + "fps", 350, 415);
-    
+
     //t += millis() - lastFrameMS;
     t++;
     lastFrameMS = millis();

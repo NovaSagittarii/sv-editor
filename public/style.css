@@ -1,0 +1,61 @@
+/* CSS files add styling rules to your content */
+
+body {
+  font-family: "Benton Sans", "Helvetica Neue", helvetica, arial, sans-serif;
+  margin: 0em;
+  overflow: hidden;
+}
+
+h1 {
+  font-style: italic;
+  color: #373fff;
+}
+
+.uploadFolder {
+  background: #ddd;
+  padding: 1em;
+}
+
+#upload { transition: margin-top cubic-bezier(0.5, 0, 0, 1) 0.5s; }
+
+#folderContents {
+  padding: 1em;
+  background: #f1f1f1;
+}
+
+#folderContents > div {
+  padding: 0.7em;
+  font-size: 1em;
+
+  overflow: hidden;
+	white-space: nowrap;
+  text-overflow: ellipsis;
+
+  transition: cubic-bezier(0.5, 0, 0, 1) 0.5s;
+}
+
+#folderContents > .valid:hover {
+  /* padding: 0.5em;
+  font-size: 1.2em; */
+  background: #efe;
+  text-indent: 80px;
+}
+
+#folderContents > .valid > button {
+  position: absolute;
+  transform: translate(-80px, 0);
+  float: right;
+
+  background: rgba(0, 0, 0, 0.2);
+  transition: cubic-bezier(0.5, 0, 0, 1) 0.5s;
+}
+#folderContents > .valid > button:hover {
+  color: #fff;
+  background: rgba(0, 0, 0, 0.4);
+  border-color: rgba(0, 0, 0, 0.5);
+}
+
+.wrongExtension { background: #fdd; }
+
+.valid { background: #dfd; }
+.invalid { background: #fdf; }
