@@ -11,6 +11,7 @@ let fy = 0;    // first line y (correction for hovering)
 let fl = 0;     // first line (calculation)
 let ll = 0;     // last line (calculation)
 let mspb;       // milliseconds per beat
+let bpm;
 
 const SNAPPING_MODE = "round";
 
@@ -66,27 +67,40 @@ Column.prototype.draw = function() {
   }
   noStroke();
   fill(0);
-  for(var j = 0; j < this.notes.length; j ++){
+  for(var j = this.notes.length-1; j >= 0; j --){
     const N = this.notes[j];
     const YRP = yo - (N.t - t + yt*mspb) * z;
     //rect(this.x, YRP-4, this.w, 8);
-    if(!N.ln && YRP > height+100) continue;
-    if(YRP <= 0) break;
+    if(!N.ln && YRP > height+100) break;
+    if(YRP <= 0) continue;
 
-    if(N.ln){
-      const YRP_E = yo - (N._t - t + yt*mspb) * z;
-      if(YRP_E > height+100) continue;
-
-      const LN_H = YRP - YRP_E - this.th; // long note height
-      image(lnBody, this.x, (YRP+YRP_E)/2 - this.thd2, this.w, LN_H);
-      image(lnHead, this.x, YRP - this.thd2, this.w, this.th);
+    if(this.type){
+      image(svTile, this.x, YRP - this.thd2, this.w, this.th);
       push();
-      translate(this.x, YRP_E - this.thd2);
-      scale(1, -1);
-      image(lnHead, 0, 0, this.w, this.th);
+      stroke(N.i ? "#FF0000" : "#00FF00");
+      strokeWeight(2);
+      line(LB_C, YRP, RB_C, YRP);
+      stroke(0);
+      fill(255);
+      textAlign(CENTER, BOTTOM);
+      text(N.i ? (N.bpm.toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), this.x, YRP);
       pop();
     }else{
-      image(this.type ? svTile : tile, this.x, YRP - this.thd2, this.w, this.th);
+      if(N.ln){
+        const YRP_E = yo - (N._t - t + yt*mspb) * z;
+        if(YRP_E > height+100) break;
+
+        const LN_H = YRP - YRP_E - this.th; // long note height
+        image(lnBody, this.x, (YRP+YRP_E)/2 - this.thd2, this.w, LN_H);
+        image(lnHead, this.x, YRP - this.thd2, this.w, this.th);
+        push();
+        translate(this.x, YRP_E - this.thd2);
+        scale(1, -1);
+        image(lnHead, 0, 0, this.w, this.th);
+        pop();
+      }else{
+        image(tile, this.x, YRP - this.thd2, this.w, this.th);
+      }
     }
     // add different colors later ***
   }
@@ -163,6 +177,7 @@ function draw() {
       if(tp+1 < TP.length && t >= TP[tp+1].t){
         tp ++;
         if(TP[tp].i){
+          bpm = TP[tp].bpm;
           mspb = TP[tp].mspb;
           to = TP[tp].t;
         }
@@ -185,6 +200,7 @@ function draw() {
       textSize(12);
       text("Z="+zR, RB_C+100, 400);
       text(frameRate().toFixed(1) + "fps", RB_C+100, 415);
+      text(bpm.toFixed(2) + "bpm", RB_C+100, 430);
 
       if(AudioSource) t = 1000*AudioSource.currentTime() || 0;
       mp = false;
@@ -266,9 +282,13 @@ folder.addEventListener('change', e => {
         for(let i = 0; i < 3; i ++) C.push(new Column(345+(i+Difficulty.CircleSize)*70, 70, 1));
         calculateBoundaries();
 
+        let TPC = 0;
         TimingPoints.forEach(e => {
           /*Offset, Milliseconds per Beat, Meter, Sample Set, Sample Index, Volume, Inherited, Kiai Mode*/
-          TP.push(new TimingPoint(...e));
+          const nTP = new TimingPoint(...e);
+          TP.push(nTP);
+          C[Difficulty.CircleSize + TPC%3].notes.push(nTP);
+          TPC ++;
         });
         Notes.forEach(e => {
           /* x,y,time,type,hitSound,endTime:extras */
@@ -281,6 +301,7 @@ folder.addEventListener('change', e => {
 
         tp = 0;
         mspb = TP[0].mspb;
+        bpm = TP[0].bpm;
         to = TP[0].t;
 
         const parse = new FileReader();
