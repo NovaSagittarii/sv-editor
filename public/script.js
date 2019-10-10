@@ -10,94 +10,126 @@ let yc = 0;     // y correction (when pointer is misaligned with divisors)
 let fy = 0;    // first line y (correction for hovering)
 let fl = 0;     // first line (calculation)
 let ll = 0;     // last line (calculation)
-let tp = {                  // using one timing point for now
-    t: 0,     // start time of timing point
-    bpm: 176,   // bpm of timing point
-    speed: 100, // slider velocity
-};
-let mspb = 60000/tp.bpm;    // milliseconds per beat
+let mspb;       // milliseconds per beat
 
 const SNAPPING_MODE = "round";
-let tile;
 
 let mp = false;
 
 const colors = {
-    "1": ["#000000"],
-    "2": ["#000000","#FF0000"],
-    "3": ["#FF0000","#C800C8","#C800C8"],
-    "4": ["#000000","#0000FF","#FF0000","#0000FF"]
+  "1": ["#000000"],
+  "2": ["#000000","#FF0000"],
+  "3": ["#FF0000","#C800C8","#C800C8"],
+  "4": ["#000000","#0000FF","#FF0000","#0000FF"]
+};
+const TimingPoint = function(to, mspb, m, ss, si, v, i, k){
+  this.t = to;
+  this.mspb = mspb > 0 ? mspb : -100/mspb;
+  this.bpm = 60000/mspb;
+  this.m = m;    // meter
+  this.ss = ss;  // sample set
+  this.si = si;  // sample index
+  this.v = v|0;  // volume
+  this.i = !!i;  // inherited ?
+  this.k = !!k;  // kiai ?
+};
+const Note = function(x, y, t, type, hs, et){
+  this.t = t;
+  this.ln = type > 100; // 1 - note, 128 - long_note
+  this.hs = hs;
+  this._t = et || t;
 };
 const Column = function(x, w, t){
-    this.x = x;
-    this.w = w;
-    this.w2 = w/2;
-    this.RB = x - w/2;
-    this.LB = x + w/2;
-    this.type = t;
-    this.notes = [];
-    this.th = Math.floor(tile.height * (w / tile.width)); // tile height
+  this.x = x;
+  this.w = w;
+  this.w2 = w/2;
+  this.RB = x - w/2;
+  this.LB = x + w/2;
+  this.type = t;
+  this.notes = [];
+  this.th = Math.floor(tile.height * (w / tile.width)); // tile height
+  this.thd2 = this.th/2;
 };
 Column.prototype.draw = function() {
-    noFill();
-    stroke(0, 0, 0);
-    rect(this.x, 300, this.w, height*2);
-    for(var j = fl; j < ll; j ++){
-        var YRP = yo-(2*to-t*d+(j+yt*d)*mspb)/d*z; // Y RENDER POSITION
-        if(YRP > height){
-            continue;
-        }
-        if(YRP <= 0){
-            fy = YRP;// + mspb/d*z;
-            break;
-        }
-        stroke(colors[d][Math.abs(j) % d]);
-        line(this.LB, YRP, this.RB, YRP);
+  noFill();
+  stroke(0, 0, 0);
+  rect(this.x, 300, this.w, height*2);
+  for(let j = fl; j < ll; j ++){
+    const YRP = yo-(2*to-t*d+(j+yt*d)*mspb)/d*z; // Y RENDER POSITION
+    if(YRP > height) continue;
+    if(YRP <= 0){
+      fy = YRP;// + mspb/d*z;
+      break;
+    }
+    stroke(colors[d][Math.abs(j) % d]);
+    line(this.LB, YRP, this.RB, YRP);
+  }
+  noStroke();
+  fill(0);
+  for(var j = 0; j < this.notes.length; j ++){
+    const N = this.notes[j];
+    const YRP = yo - (N.t - t + yt*mspb) * z;
+    //rect(this.x, YRP-4, this.w, 8);
+    if(!N.ln && YRP > height+100) continue;
+    if(YRP <= 0) break;
 
-        //text((to+(j/d)*mspb), this.x, YRP-6);
+    if(N.ln){
+      const YRP_E = yo - (N._t - t + yt*mspb) * z;
+      if(YRP_E > height+100) continue;
+
+      const LN_H = YRP - YRP_E - this.th; // long note height
+      image(lnBody, this.x, (YRP+YRP_E)/2 - this.thd2, this.w, LN_H);
+      image(lnHead, this.x, YRP - this.thd2, this.w, this.th);
+      push();
+      translate(this.x, YRP_E - this.thd2);
+      scale(1, -1);
+      image(lnHead, 0, 0, this.w, this.th);
+      pop();
+    }else{
+      image(this.type ? svTile : tile, this.x, YRP - this.thd2, this.w, this.th);
     }
-    noStroke();
-    fill(0);
-    for(var j = 0; j < this.notes.length; j ++){
-        var YRP = yo - (this.notes[j] - t + yt*mspb) * z;
-        //rect(this.x, YRP-4, this.w, 8);
-        if(YRP > height+100){
-            continue;
-        }
-        if(YRP <= 0){
-            break;
-        }
-        image(tile, this.x, YRP - this.th/2, this.w, this.th);
-        //text(this.notes[j], this.x, YRP-15);
-    }
+    // add different colors later ***
+  }
 };
 Column.prototype.checkPlacement = function(){
-    if(Math.abs(mouseX - this.x) < this.w2){
-        stroke(0, 0, 0, 100);
-        fill(0, 0, 0, 150 + Math.cos(frameCount/16)*20);
-        //rect(this.x, Math.floor((mouseY+7.5) /mspb/z*d) *mspb*z/d + (yo%(mspb*z/d)) - 7.5, this.w, 15);
-        //image(tile, this.x, (Math.floor((mouseY) /mspb/z*d)+yc) *mspb*z/d + (yo%(mspb*z/d)) - this.th/2, this.w, this.th);
+  if(Math.abs(mouseX - this.x) < this.w2){
+    stroke(0, 0, 0, 100);
+    fill(0, 0, 0, 150 + Math.cos(frameCount/8)*20);
+    //rect(this.x, Math.floor((mouseY+7.5) /mspb/z*d) *mspb*z/d + (yo%(mspb*z/d)) - 7.5, this.w, 15);
+    //image(tile, this.x, Math[SNAPPING_MODE]((mouseY-fy) / (mspb*z/d)) * (mspb/d*z) + fy - this.thd2, this.w, this.th);
 
-        var mouseMS = (yo - mouseY)/z - yt*mspb + t;
-        text(~~mouseMS, mouseX, mouseY-15);
-        rect(this.x, Math[SNAPPING_MODE]((mouseY-fy) / (mspb*z/d)) * (mspb/d*z) + fy - 4, this.w, 8);
+    var mouseMS = (yo - mouseY)/z - yt*mspb + t;
+    text(~~mouseMS, mouseX, mouseY-15);
+    rect(this.x, Math[SNAPPING_MODE]((mouseY-fy) / (mspb*z/d)) * (mspb/d*z) + fy - this.thd2, this.w, this.th);
 
-        if(mp){
-            this.notes.push(Math[SNAPPING_MODE](mouseMS/mspb*d)*mspb/d + to%(mspb/d));
-            this.notes.sort((a,b) => a-b);
-            mp = false;
-        }
-
-        line(mouseX-15, mouseY, mouseX-5, mouseY);
-        line(mouseX+15, mouseY, mouseX+5, mouseY);
+    if(mp){
+      this.notes.push(Math[SNAPPING_MODE](mouseMS/mspb*d)*mspb/d + to%(mspb/d));
+      this.notes.sort((a,b) => a-b);
+      mp = false;
     }
+
+    line(mouseX-15, mouseY, mouseX-5, mouseY);
+    line(mouseX+15, mouseY, mouseX+5, mouseY);
+  }
 };
-let C = [];
+let C, TP = [], tp;
 let state = 0;
 let LB_C, RB_C, ZERO_CP, ZERO_W;
 
+let tile, svTile, lnHead, lnBody;
+
+function calculateBoundaries(){
+  LB_C = C[0].x - C[0].w/2 - 15;
+  RB_C = C[C.length-1].x + C[C.length-1].w/2 + 15;
+  ZERO_CP = (C[0].x - C[0].w/2 + C[C.length-1].x + C[C.length-1].w/2) / 2;
+  ZERO_W = RB_C-LB_C-15;
+}
+
 function preload(){
   tile = loadImage('https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-note2.png?v=1570597631148'); //loadImage('/assets/mania-note2.png');
+  svTile = loadImage('https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fsv-note.png?v=1570675367228');
+  lnHead = loadImage('https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-note2H.png?v=1570675914438');
+  lnBody = loadImage('https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-note2L.png?v=1570675925075');
 }
 function setup() {
 	createCanvas(windowWidth, windowHeight);
@@ -107,15 +139,6 @@ function setup() {
   textAlign(CENTER, CENTER);
   textSize(100);
   rectMode(CENTER);
-
-  // 4k + 3k
-  for(let i = 0; i < 4; i ++) C.push(new Column(275+i*70, 70, 0));
-  for(let i = 0; i < 3; i ++) C.push(new Column(620+i*70, 70, 1));
-
-  LB_C = C[0].x - C[0].w/2 - 15;
-  RB_C = C[C.length-1].x + C[C.length-1].w/2 + 15;
-  ZERO_CP = (C[0].x - C[0].w/2 + C[C.length-1].x + C[C.length-1].w/2) / 2;
-  ZERO_W = RB_C-LB_C-15;
 }
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
@@ -137,6 +160,14 @@ function draw() {
       state = 3;
       break;
     case 3:
+      if(tp < TP.length && t >= TP[tp+1]){
+        tp ++;
+        if(TP[tp].i){
+          mspb = TP[tp].mspb;
+          to = TP[tp].t;
+        }
+      }
+
       fl = Math.round(-yt + (t-to)/mspb)*d - 10;
       ll = Math.round(-yt + (t-to)/mspb)*d + 100;
 
@@ -219,22 +250,37 @@ folder.addEventListener('change', e => {
           return;
         }
         const Difficulty = {};
-        d.split('\n\n').filter(e => e.startsWith('[Difficulty]'))[0].split('\n').slice(1).map(e => e.split(':')).map(e => Difficulty[e[0]] = e[1]);
+        d.split('\n\n').filter(e => e.startsWith('[Difficulty]'))[0].split('\n').slice(1).map(e => e.split(':')).map(e => Difficulty[e[0]] = parseInt(e[1]));
         console.log(Difficulty);
-        const Notes = d.split('\n\n\n')[1].split('\n').slice(1);
-        const TimingPoints = d.split('\n\n').filter(e => e.startsWith('[TimingPoints]'))[0].split('\n').slice(1).map(e => e.split(','));
+
+        //                                                               ignoring :extras ***
+        const Notes = d.split('\n\n\n')[1].split('\n').slice(1).map(e => e.split(':')[0].split(',').map(n => parseInt(n)));
+        const TimingPoints = d.split('\n\n').filter(e => e.startsWith('[TimingPoints]'))[0].split('\n').slice(1).map(e => e.split(',').map(n => parseFloat(n) || n));
         const ColumnWidth = 512/Difficulty.CircleSize;
 
-        console.log(TimingPoints);
-
-        mspb = parseFloat(TimingPoints[0][1]);
-        to = parseInt(TimingPoints[0][0]);
+        C = [];
         yo = height - 150;
+        // Add the columns (which notes will be added to)
+        for(let i = 0; i < Difficulty.CircleSize; i ++) C.push(new Column(275+i*70, 70, 0));
+        for(let i = 0; i < 3; i ++) C.push(new Column(345+(i+Difficulty.CircleSize)*70, 70, 1));
+        calculateBoundaries();
 
-        Notes.map(e => e.split(',')).forEach(e => {
-          /* x,y,time,type,hitSound,endTime:extras */
-          C[Math.floor(e[0] / ColumnWidth)].notes.push(e[2]);
+        TimingPoints.forEach(e => {
+          /*Offset, Milliseconds per Beat, Meter, Sample Set, Sample Index, Volume, Inherited, Kiai Mode*/
+          TP.push(new TimingPoint(...e));
         });
+        Notes.forEach(e => {
+          /* x,y,time,type,hitSound,endTime:extras */
+          try {
+            C[Math.floor(e[0] / ColumnWidth)].notes.push(new Note(...e));
+          } catch (error) {
+            console.warn("Invalid note format: ", e);
+          }
+        });
+
+        tp = 0;
+        mspb = TP[0].mspb;
+        to = TP[0].t;
 
         const parse = new FileReader();
         parse.onload = async e => {
@@ -242,7 +288,7 @@ folder.addEventListener('change', e => {
           play();
           state = 2;
         };
-        const audioPATH = d.split('\n').filter(e => e.startsWith('AudioFilename: '))[0].split(' ')[1];
+        const audioPATH = d.split('\n').filter(e => e.startsWith('AudioFilename: '))[0].replace('AudioFilename: ', '');
         console.log("Audio file: " + audioPATH);
         parse.readAsArrayBuffer(files[audioPATH]);
       });
