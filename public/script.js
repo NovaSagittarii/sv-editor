@@ -30,7 +30,7 @@ const TimingPoint = function(to, mspb, m, ss, si, v, i, k){
   this.ss = ss;  // sample set
   this.si = si;  // sample index
   this.v = v|0;  // volume
-  this.i = !!i;  // inherited ?
+  this.i = !!parseInt(i);  // inherited ?
   this.k = !!k;  // kiai ?
 };
 const Note = function(x, y, t, type, hs, et){
@@ -55,7 +55,7 @@ Column.prototype.draw = function() {
   stroke(0, 0, 0);
   rect(this.x, 300, this.w, height*2);
   for(let j = fl; j < ll; j ++){
-    const YRP = yo-(2*to-t*d+(j+yt*d)*mspb)/d*z; // Y RENDER POSITION
+    const YRP = yo-((to-t)*d+(j+yt*d)*mspb)/d*z; // Y RENDER POSITION
     if(YRP > height) continue;
     if(YRP <= 0){
       fy = YRP;// + mspb/d*z;
@@ -160,7 +160,7 @@ function draw() {
       state = 3;
       break;
     case 3:
-      if(tp < TP.length && t >= TP[tp+1]){
+      if(tp+1 < TP.length && t >= TP[tp+1].t){
         tp ++;
         if(TP[tp].i){
           mspb = TP[tp].mspb;
@@ -175,7 +175,8 @@ function draw() {
         C[i].draw();
         C[i].checkPlacement();
       }
-      stroke(0, 0, 0, 150);
+      strokeWeight(1)
+      stroke(0, 0, 0);
       line(LB_C, yo-1, RB_C, yo-1);
       line(LB_C, yo+1, RB_C, yo+1);
       noStroke();
