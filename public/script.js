@@ -43,7 +43,7 @@ Column.prototype.draw = function() {
     stroke(0, 0, 0);
     rect(this.x, 300, this.w, height*2);
     for(var j = fl; j < ll; j ++){
-        var YRP = yo-(to-t*d+(j+yt*d)*mspb)/d*z; // Y RENDER POSITION
+        var YRP = yo-(2*to-t*d+(j+yt*d)*mspb)/d*z; // Y RENDER POSITION
         if(YRP > height){
             continue;
         }
@@ -59,7 +59,7 @@ Column.prototype.draw = function() {
     noStroke();
     fill(0);
     for(var j = 0; j < this.notes.length; j ++){
-        var YRP = yo - (this.notes[j] - (t+to) + yt*mspb) * z;
+        var YRP = yo - (this.notes[j] - t + yt*mspb) * z;
         //rect(this.x, YRP-4, this.w, 8);
         if(YRP > height+100){
             continue;
@@ -78,12 +78,12 @@ Column.prototype.checkPlacement = function(){
         //rect(this.x, Math.floor((mouseY+7.5) /mspb/z*d) *mspb*z/d + (yo%(mspb*z/d)) - 7.5, this.w, 15);
         //image(tile, this.x, (Math.floor((mouseY) /mspb/z*d)+yc) *mspb*z/d + (yo%(mspb*z/d)) - this.th/2, this.w, this.th);
 
-        var mouseMS = (yo - mouseY)/z - yt*mspb + to+t;
+        var mouseMS = (yo - mouseY)/z - yt*mspb + t;
         text(~~mouseMS, mouseX, mouseY-15);
         rect(this.x, Math[SNAPPING_MODE]((mouseY-fy) / (mspb*z/d)) * (mspb/d*z) + fy - 4, this.w, 8);
 
         if(mp){
-            this.notes.push(Math[SNAPPING_MODE](mouseMS/mspb*d)*mspb/d);
+            this.notes.push(Math[SNAPPING_MODE](mouseMS/mspb*d)*mspb/d + to%(mspb/d));
             this.notes.sort((a,b) => a-b);
             mp = false;
         }
@@ -108,9 +108,9 @@ function setup() {
   textSize(100);
   rectMode(CENTER);
 
-  // strictly 4k only for now ***
-  for(let i = 0; i < 4; i ++) C.push(new Column(75+i*70, 70, 0));
-  for(let i = 0; i < 3; i ++) C.push(new Column(420+i*50, 50, 1));
+  // 4k + 3k
+  for(let i = 0; i < 4; i ++) C.push(new Column(275+i*70, 70, 0));
+  for(let i = 0; i < 3; i ++) C.push(new Column(620+i*70, 70, 1));
 
   LB_C = C[0].x - C[0].w/2 - 15;
   RB_C = C[C.length-1].x + C[C.length-1].w/2 + 15;
@@ -137,8 +137,8 @@ function draw() {
       state = 3;
       break;
     case 3:
-      fl = Math.round(-yt + t/mspb)*d - 10;
-      ll = Math.round(-yt + t/mspb)*d + 100;
+      fl = Math.round(-yt + (t-to)/mspb)*d - 10;
+      ll = Math.round(-yt + (t-to)/mspb)*d + 100;
 
       for(var i = 0; i < C.length; i ++){
         C[i].draw();
@@ -149,7 +149,7 @@ function draw() {
       line(LB_C, yo+1, RB_C, yo+1);
       noStroke();
       fill(0, 0, 0, 255);
-      rect(ZERO_CP, yo-(to-t*d+(yt*d)*mspb)/d*z, ZERO_W, 3);
+      rect(ZERO_CP, yo-(-t*d+(yt*d)*mspb)/d*z, ZERO_W, 3);
       textSize(12);
       text("Z="+zR, RB_C+100, 400);
       text(frameRate().toFixed(1) + "fps", RB_C+100, 415);
@@ -227,9 +227,9 @@ folder.addEventListener('change', e => {
 
         console.log(TimingPoints);
 
-        mspb = TimingPoints[0][1];
-        to = TimingPoints[0][0];
-        yo = height - 100;
+        mspb = parseFloat(TimingPoints[0][1]);
+        to = parseInt(TimingPoints[0][0]);
+        yo = height - 150;
 
         Notes.map(e => e.split(',')).forEach(e => {
           /* x,y,time,type,hitSound,endTime:extras */
