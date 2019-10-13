@@ -17,7 +17,7 @@ const SNAPPING_MODE = "round";
 const INVERTED_SCROLL = false;
 
 let mp = false;
-const keys = [];
+const keys = {};
 
 const colors = {
   "1": ["#000000"],
@@ -231,6 +231,11 @@ function mousePressed(){
   mp = true;
 }
 function mouseWheel(event) {
+  if(state !== 3) return;
+  if(keys[17]){
+    d = constrain((event.delta > 0) ? d>>1 : d<<1, 1, 4);
+    return false;
+  }
   if(event.delta < 0 == INVERTED_SCROLL){
     if(SongAudio.paused){
       yt = Math.floor(yt * d - 1 / d) / d;
@@ -246,6 +251,8 @@ function mouseWheel(event) {
   }
 }
 function keyPressed(){
+  if(state !== 3) return;
+  keys[keyCode] = true;
   switch(keyCode){
     case 32:
       if(SongAudio.paused){
@@ -254,9 +261,7 @@ function keyPressed(){
         yt = 0;
       }else{
         SongAudio.pause();
-        const msOffset = (SongAudio.currentTime*1000 - to) % (mspb/d);
-        t -= msOffset;
-        yt = -msOffset/mspb;
+        snapTime();
       }
       break;
     case 39: yt = Math.floor(yt * d - 1/d) / d; SongAudio.currentTime -= mspb/d/1000; break; // LEFT
@@ -271,7 +276,16 @@ function keyPressed(){
   }
   d = constrain(d, 1, 4);
   yc = -yt%(1/d)*d;
+  return false;
 };
+function keyReleased(){
+  delete keys[keyCode];
+}
+function snapTime(){
+  const msOffset = (SongAudio.currentTime*1000 - to) % (mspb/d);
+  t -= msOffset;
+  yt = -msOffset/mspb;
+}
 
 const files = [];
 
@@ -279,7 +293,7 @@ const uploadDiv = document.getElementById('upload');
 const folder = document.getElementById('folder');
 const folderContents = document.getElementById('folderContents');
 
-let SongAudio
+let SongAudio;
 
 function clearHTML(htmlElement){
   while (htmlElement.firstChild) htmlElement.removeChild(htmlElement.firstChild);
@@ -356,9 +370,10 @@ folder.addEventListener('change', e => {
 
           SongAudio = new Audio(e.target.result);
           SongAudio.onloadeddata = () => {
-            state = 2;
-            console.info(`Finished loading audio file. Took ${Math.floor(performance.now() - parseDone)} ms.`)
+            console.info(`Finished loading audio file. Took ${Math.floor(performance.now() - parseDone)} ms.`);
+            snapTime();
             SongAudio.play();
+            state = 2;
           };
         };
         const audioPATH = d.split('\n').filter(e => e.startsWith('AudioFilename: '))[0].replace('AudioFilename: ', '');
