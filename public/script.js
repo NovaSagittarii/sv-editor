@@ -80,8 +80,8 @@ Column.prototype.draw = function() {
       stroke(N.i ? "#FF0000" : "#00FF00");
       strokeWeight(2);
       line(LB_C, YRP, RB_C, YRP);
-      stroke(0);
-      fill(255);
+      stroke(255, 100);
+      fill(0);
       textAlign(CENTER, BOTTOM);
       text(N.i ? (N.bpm.toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), this.x, YRP);
       pop();
@@ -117,8 +117,13 @@ Column.prototype.checkPlacement = function(){
     rect(this.x, Math[SNAPPING_MODE]((mouseY-fy) / (mspb*z/d)) * (mspb/d*z) + fy - this.thd2, this.w, this.th);
 
     if(mp){
-      this.notes.push(Math[SNAPPING_MODE](mouseMS/mspb*d)*mspb/d + to%(mspb/d));
-      this.notes.sort((a,b) => a-b);
+      const t = (Math[SNAPPING_MODE]((mouseMS/mspb)*d)*mspb)/d + (to % (mspb/d));
+      if(this.type){
+        // SV Notes unsupporting for now.
+      }else{
+        this.notes.push(new Note(null, null, t, 0));
+      }
+      this.notes.sort((a,b) => a.t-b.t);
       mp = false;
     }
 
@@ -146,8 +151,8 @@ function preload(){
   lnBody = loadImage('https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-note2L.png?v=1570675925075');
 }
 function setup() {
-	createCanvas(windowWidth, windowHeight);
-	background(255, 255, 255);
+  createCanvas(windowWidth, windowHeight);
+  background(255, 255, 255);
   frameRate(240);
   imageMode(CENTER);
   textAlign(CENTER, CENTER);
@@ -169,11 +174,18 @@ function draw() {
       text("Parsing", width/2, 200);
     case 2:
       fill(255);
-      if(AudioSource) text(`${AudioSource.currentTime().toFixed(1)} / ${AudioSource.buffer.duration.toFixed(1)}`, width/2, 200);
-
-      state = 3;
+      //if(AudioSource) text(`${AudioSource.currentTime().toFixed(1)} / ${AudioSource.duration.toFixed(1)}`, width/2, 200);
+      if(C) state = 3;
       break;
     case 3:
+      if(tp && t < TP[tp].t){
+        tp --;
+        if(TP[tp].i){
+          bpm = TP[tp].bpm;
+          mspb = TP[tp].mspb;
+          to = TP[tp].t;
+        }
+      }
       if(tp+1 < TP.length && t >= TP[tp+1].t){
         tp ++;
         if(TP[tp].i){
@@ -190,7 +202,7 @@ function draw() {
         C[i].draw();
         C[i].checkPlacement();
       }
-      strokeWeight(1)
+      strokeWeight(1);
       stroke(0, 0, 0);
       line(LB_C, yo-1, RB_C, yo-1);
       line(LB_C, yo+1, RB_C, yo+1);
@@ -199,20 +211,40 @@ function draw() {
       rect(ZERO_CP, yo-(-t*d+(yt*d)*mspb)/d*z, ZERO_W, 3);
       textSize(12);
       text("Z="+zR, RB_C+100, 400);
-      text(frameRate().toFixed(1) + "fps", RB_C+100, 415);
+      //text(frameRate().toFixed(1) + "fps", RB_C+100, 415);
       text(bpm.toFixed(2) + "bpm", RB_C+100, 430);
+      text((TP[tp].i ? 1 : TP[tp].mspb).toFixed(2) + "x", RB_C + 100, 445);
 
-      if(AudioSource) t = 1000*AudioSource.currentTime() || 0;
+      if(AudioSource && AudioSource.playing) t = 1000*AudioSource.currentTime() || 0;
       mp = false;
       break;
   }
 }
 function mousePressed(){
   mp = true;
-};
+}
+function mouseWheel(event) {
+  if(event.delta > 0){
+    yt = Math.floor(yt * d - 1 / d) / d;
+  }else{
+    yt = Math.ceil(yt * d + 1 / d) / d;
+  }
+}
 function keyPressed(){
   switch(keyCode){
-    case 32: stop(); break;
+    case 32:
+      if(AudioSource.playing){
+        AudioSource.pause();
+        const msOffset = (AudioSource.progress*1000 - to) % (mspb/d);
+        t -= msOffset;
+        yt = -msOffset/mspb;
+
+        //console.log(AudioSource.progress, t+yt*mspb)
+      }else{
+        AudioSource.play((t - yt*mspb)/1000);
+        yt = 0;
+      }
+      break;
     case 39: yt = Math.floor(yt * d - 1/d) / d; break; // LEFT
     case 37: yt = Math.ceil(yt * d + 1/d) / d; break; // RIGHT
     case 38: d ++; break; // UP
@@ -306,8 +338,8 @@ folder.addEventListener('change', e => {
 
         const parse = new FileReader();
         parse.onload = async e => {
-          AudioBuffer = await ctx.decodeAudioData(e.target.result);
-          play();
+          //AudioBuffer = await ctx.decodeAudioData(e.target.result);
+          AudioSource = new Audio(await ctx.decodeAudioData(e.target.result));
           state = 2;
         };
         const audioPATH = d.split('\n').filter(e => e.startsWith('AudioFilename: '))[0].replace('AudioFilename: ', '');
@@ -325,7 +357,7 @@ folder.addEventListener('change', e => {
   };
 });
 
-function play(s){
+/*function play(s){
   AudioSource = ctx.createBufferSource();
   AudioSource.buffer = AudioBuffer;
   AudioSource.connect(ctx.destination);
@@ -337,7 +369,43 @@ function play(s){
 }
 function stop(ms){
   AudioSource.stop();
-}
+}*/
+
+const Audio = function(AudioBuffer){
+  this.data = AudioBuffer;
+  this.duration = AudioBuffer.duration;
+  this.playing = false;
+  this.e = {};
+};
+Audio.prototype.addEventListener = function(event, callback){
+  this.e[event] = callback;
+};
+Audio.prototype.play = function(t){
+  if(this.playing) this.src.stop();
+
+  this.src = ctx.createBufferSource();
+  this.src.buffer = this.data;
+  this.src.connect(ctx.destination);
+
+  this.offset = t >= 0 ? 0 : -t;
+  setTimeout(() => this.src.start(0, Math.abs(t) || this.progress || 0), -t);
+
+  this.startTime = ctx.currentTime - (t || this.progress || 0);
+  this.playing = true;
+};
+Audio.prototype.pause = function(){
+  this.progress = this.currentTime();
+  this.src.stop();
+  this.playing = false;
+};
+Audio.prototype.stop = function(){
+  this.progress = 0;
+  this.src.stop();
+  this.playing = false;
+};
+Audio.prototype.currentTime = function(){
+  return this.playing ? (ctx.currentTime - this.startTime - this.offset) || 0 : this.progress;
+};
 
 /*
   Exporting xpos: Math.floor((512/CS)*(0.5+COLUMN))
