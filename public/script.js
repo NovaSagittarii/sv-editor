@@ -14,8 +14,10 @@ let mspb;       // milliseconds per beat
 let bpm;
 
 const SNAPPING_MODE = "round";
+const INVERTED_SCROLL = false;
 
 let mp = false;
+const keys = [];
 
 const colors = {
   "1": ["#000000"],
@@ -174,8 +176,13 @@ function draw() {
       text("Parsing", width/2, 200);
     case 2:
       fill(255);
-      //if(AudioSource) text(`${AudioSource.currentTime().toFixed(1)} / ${AudioSource.duration.toFixed(1)}`, width/2, 200);
-      if(C) state = 3;
+      if(SongAudio){
+        text(`${SongAudio.currentTime.toFixed(1)} / ${SongAudio.duration.toFixed(1)}`, width/2, 200);
+        if(C){
+          state = 3;
+          SongAudio.pause();
+        }
+      }
       break;
     case 3:
       if(tp && t < TP[tp].t){
@@ -215,7 +222,7 @@ function draw() {
       text(bpm.toFixed(2) + "bpm", RB_C+100, 430);
       text((TP[tp].i ? 1 : TP[tp].mspb).toFixed(2) + "x", RB_C + 100, 445);
 
-      if(AudioSource && AudioSource.playing) t = 1000*AudioSource.currentTime() || 0;
+      if(SongAudio && !SongAudio.ended && !SongAudio.paused) t = 1000*SongAudio.currentTime || 0;
       mp = false;
       break;
   }
@@ -224,29 +231,36 @@ function mousePressed(){
   mp = true;
 }
 function mouseWheel(event) {
-  if(event.delta > 0){
-    yt = Math.floor(yt * d - 1 / d) / d;
+  if(event.delta < 0 == INVERTED_SCROLL){
+    if(SongAudio.paused){
+      yt = Math.floor(yt * d - 1 / d) / d;
+    }else{
+      SongAudio.currentTime += mspb/d/1000;
+    }
   }else{
-    yt = Math.ceil(yt * d + 1 / d) / d;
+    if(SongAudio.paused){
+      yt = Math.ceil(yt * d + 1 / d) / d;
+    }else{
+      SongAudio.currentTime -= mspb/d/1000;
+    }
   }
 }
 function keyPressed(){
   switch(keyCode){
     case 32:
-      if(AudioSource.playing){
-        AudioSource.pause();
-        const msOffset = (AudioSource.progress*1000 - to) % (mspb/d);
+      if(SongAudio.paused){
+        SongAudio.currentTime = (t - yt*mspb)/1000;
+        SongAudio.play();
+        yt = 0;
+      }else{
+        SongAudio.pause();
+        const msOffset = (SongAudio.currentTime*1000 - to) % (mspb/d);
         t -= msOffset;
         yt = -msOffset/mspb;
-
-        //console.log(AudioSource.progress, t+yt*mspb)
-      }else{
-        AudioSource.play((t - yt*mspb)/1000);
-        yt = 0;
       }
       break;
-    case 39: yt = Math.floor(yt * d - 1/d) / d; break; // LEFT
-    case 37: yt = Math.ceil(yt * d + 1/d) / d; break; // RIGHT
+    case 39: yt = Math.floor(yt * d - 1/d) / d; SongAudio.currentTime -= mspb/d/1000; break; // LEFT
+    case 37: yt = Math.ceil(yt * d + 1/d) / d; SongAudio.currentTime += mspb/d/1000; break; // RIGHT
     case 38: d ++; break; // UP
     case 40: d --; break; // DOWN
     case 189: // -
@@ -265,11 +279,7 @@ const uploadDiv = document.getElementById('upload');
 const folder = document.getElementById('folder');
 const folderContents = document.getElementById('folderContents');
 
-const AudioContext = window.AudioContext || window.webkitAudioContext;
-const ctx = new AudioContext();
-let AudioSource, AudioBuffer;
-
-ctx.resume();
+let SongAudio
 
 function clearHTML(htmlElement){
   while (htmlElement.firstChild) htmlElement.removeChild(htmlElement.firstChild);
@@ -289,7 +299,9 @@ folder.addEventListener('change', e => {
       open.addEventListener('click', async () => {
         uploadDiv.style.marginTop = -uploadDiv.offsetHeight + 'px';
         state = 1;
+        const readStart = performance.now();
         const d = (await new Response(file).text()).replace(/\r/g,''); // purge le CARRIAGE RETURN \r
+        console.info(`Finished reading map file.   Took ${Math.floor(performance.now() - readStart)} ms.`);
         if(d.split('\n').filter(e => e.startsWith('Mode: '))[0][6] != "3"){
           state = 0;
           uploadDiv.style.marginTop = 0;
@@ -337,14 +349,21 @@ folder.addEventListener('change', e => {
         to = TP[0].t;
 
         const parse = new FileReader();
+        const parseStart = performance.now();
         parse.onload = async e => {
-          //AudioBuffer = await ctx.decodeAudioData(e.target.result);
-          AudioSource = new Audio(await ctx.decodeAudioData(e.target.result));
-          state = 2;
+          const parseDone = performance.now();
+          console.info(`Finished parsing audio file. Took ${Math.floor(performance.now() - parseStart)} ms.`);
+
+          SongAudio = new Audio(e.target.result);
+          SongAudio.onloadeddata = () => {
+            state = 2;
+            console.info(`Finished loading audio file. Took ${Math.floor(performance.now() - parseDone)} ms.`)
+            SongAudio.play();
+          };
         };
         const audioPATH = d.split('\n').filter(e => e.startsWith('AudioFilename: '))[0].replace('AudioFilename: ', '');
         console.log("Audio file: " + audioPATH);
-        parse.readAsArrayBuffer(files[audioPATH]);
+        parse.readAsDataURL(files[audioPATH]);
       });
       open.innerText = "Open";
       div.prepend(open);
@@ -356,56 +375,6 @@ folder.addEventListener('change', e => {
     folderContents.append(div);
   };
 });
-
-/*function play(s){
-  AudioSource = ctx.createBufferSource();
-  AudioSource.buffer = AudioBuffer;
-  AudioSource.connect(ctx.destination);
-  AudioSource.start(0, s || 0);
-  AudioSource.startTime = ctx.currentTime - (s||0);
-  AudioSource.currentTime = function(){
-    return Math.min(ctx.currentTime - this.startTime, this.buffer.duration);
-  };
-}
-function stop(ms){
-  AudioSource.stop();
-}*/
-
-const Audio = function(AudioBuffer){
-  this.data = AudioBuffer;
-  this.duration = AudioBuffer.duration;
-  this.playing = false;
-  this.e = {};
-};
-Audio.prototype.addEventListener = function(event, callback){
-  this.e[event] = callback;
-};
-Audio.prototype.play = function(t){
-  if(this.playing) this.src.stop();
-
-  this.src = ctx.createBufferSource();
-  this.src.buffer = this.data;
-  this.src.connect(ctx.destination);
-
-  this.offset = t >= 0 ? 0 : -t;
-  setTimeout(() => this.src.start(0, Math.abs(t) || this.progress || 0), -t);
-
-  this.startTime = ctx.currentTime - (t || this.progress || 0);
-  this.playing = true;
-};
-Audio.prototype.pause = function(){
-  this.progress = this.currentTime();
-  this.src.stop();
-  this.playing = false;
-};
-Audio.prototype.stop = function(){
-  this.progress = 0;
-  this.src.stop();
-  this.playing = false;
-};
-Audio.prototype.currentTime = function(){
-  return this.playing ? (ctx.currentTime - this.startTime - this.offset) || 0 : this.progress;
-};
 
 /*
   Exporting xpos: Math.floor((512/CS)*(0.5+COLUMN))
