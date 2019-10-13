@@ -17,6 +17,7 @@ const SNAPPING_MODE = "round";
 const INVERTED_SCROLL = false;
 
 let mp = false;
+let sN = null;  // selectedNote
 const keys = {};
 
 const colors = {
@@ -52,6 +53,7 @@ const Column = function(x, w, t){
   this.notes = [];
   this.th = Math.floor(tile.height * (w / tile.width)); // tile height
   this.thd2 = this.th/2;
+  this.id = C.length;
 };
 Column.prototype.draw = function() {
   noFill();
@@ -76,9 +78,15 @@ Column.prototype.draw = function() {
     if(!N.ln && YRP > height+100) break;
     if(YRP <= 0) continue;
 
+    push();
+    if(sN && sN[0] == j && sN[1] == this.id) tint(0, 155);
     if(this.type){
+      if(Math.abs(mouseX - this.x) < this.w2 && Math.abs(mouseY - YRP + this.thd2) < this.thd2){
+        if(mp == 1) sN = [j, this.id];
+        if(mp == 3){ this.notes.splice(j, 1); continue; }
+        tint(255, 100);
+      }
       image(svTile, this.x, YRP - this.thd2, this.w, this.th);
-      push();
       stroke(N.i ? "#FF0000" : "#00FF00");
       strokeWeight(2);
       line(LB_C, YRP, RB_C, YRP);
@@ -86,31 +94,40 @@ Column.prototype.draw = function() {
       fill(0);
       textAlign(CENTER, BOTTOM);
       text(N.i ? (N.bpm.toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), this.x, YRP);
-      pop();
     }else{
       if(N.ln){
         const YRP_E = yo - (N._t - t + yt*mspb) * z;
         if(YRP_E > height+100) break;
 
+        if(Math.abs(mouseX - this.x) < this.w2 && mouseY > YRP-this.thd2 && mouseY < YRP_E){
+          if(mp == 1) sN = [j, this.id];
+          if(mp == 3){ this.notes.splice(j, 1); continue; }
+          tint(255, 100);
+        }
+
         const LN_H = YRP - YRP_E - this.th; // long note height
         image(lnBody, this.x, (YRP+YRP_E)/2 - this.thd2, this.w, LN_H);
         image(lnHead, this.x, YRP - this.thd2, this.w, this.th);
-        push();
         translate(this.x, YRP_E - this.thd2);
         scale(1, -1);
         image(lnHead, 0, 0, this.w, this.th);
-        pop();
       }else{
+        if(Math.abs(mouseX - this.x) < this.w2 && Math.abs(mouseY - YRP + this.thd2) < this.thd2){
+          if(mp == 1) sN = [j, this.id];
+          if(mp == 3){ this.notes.splice(j, 1); continue; }
+          tint(255, 100);
+        }
         image(tile, this.x, YRP - this.thd2, this.w, this.th);
       }
     }
+    pop();
     // add different colors later ***
   }
 };
 Column.prototype.checkPlacement = function(){
   if(Math.abs(mouseX - this.x) < this.w2){
     stroke(0, 0, 0, 100);
-    fill(0, 0, 0, 150 + Math.cos(frameCount/8)*20);
+    fill(0, 0, 0, 50 + Math.cos(frameCount/8)*20);
     //rect(this.x, Math.floor((mouseY+7.5) /mspb/z*d) *mspb*z/d + (yo%(mspb*z/d)) - 7.5, this.w, 15);
     //image(tile, this.x, Math[SNAPPING_MODE]((mouseY-fy) / (mspb*z/d)) * (mspb/d*z) + fy - this.thd2, this.w, this.th);
 
@@ -118,7 +135,7 @@ Column.prototype.checkPlacement = function(){
     text(~~mouseMS, mouseX, mouseY-15);
     rect(this.x, Math[SNAPPING_MODE]((mouseY-fy) / (mspb*z/d)) * (mspb/d*z) + fy - this.thd2, this.w, this.th);
 
-    if(mp){
+    if(mp == 1){
       const t = (Math[SNAPPING_MODE]((mouseMS/mspb)*d)*mspb)/d + (to % (mspb/d));
       if(this.type){
         // SV Notes unsupporting for now.
@@ -227,8 +244,9 @@ function draw() {
       break;
   }
 }
-function mousePressed(){
-  mp = true;
+function mousePressed(event){
+  mp = event.button+1;
+  sN = null;
 }
 function mouseWheel(event) {
   if(state !== 3) return;
