@@ -13,8 +13,8 @@ let ll = 0;     // last line (calculation)
 let mspb;       // milliseconds per beat
 let bpm;
 
-const SNAPPING_MODE = "round";
-const INVERTED_SCROLL = false;
+let SNAPPING_MODE = "round";
+let INVERTED_SCROLL = false;
 
 let mp = false;
 let sN = null;  // selectedNote
@@ -83,7 +83,7 @@ Column.prototype.draw = function() {
     if(this.type){
       if(Math.abs(mouseX - this.x) < this.w2 && Math.abs(mouseY - YRP + this.thd2) < this.thd2){
         if(mp == 1) sN = [j, this.id];
-        if(mp == 3){ this.notes.splice(j, 1); continue; }
+        if(mp == 3){ this.notes.splice(j, 1); mp = false; continue; }
         tint(255, 100);
       }
       image(svTile, this.x, YRP - this.thd2, this.w, this.th);
@@ -101,7 +101,7 @@ Column.prototype.draw = function() {
 
         if(Math.abs(mouseX - this.x) < this.w2 && mouseY > YRP-this.thd2 && mouseY < YRP_E){
           if(mp == 1) sN = [j, this.id];
-          if(mp == 3){ this.notes.splice(j, 1); continue; }
+          if(mp == 3){ this.notes.splice(j, 1); mp = false; continue; }
           tint(255, 100);
         }
 
@@ -114,7 +114,7 @@ Column.prototype.draw = function() {
       }else{
         if(Math.abs(mouseX - this.x) < this.w2 && Math.abs(mouseY - YRP + this.thd2) < this.thd2){
           if(mp == 1) sN = [j, this.id];
-          if(mp == 3){ this.notes.splice(j, 1); continue; }
+          if(mp == 3){ this.notes.splice(j, 1); mp = false; continue; }
           tint(255, 100);
         }
         image(tile, this.x, YRP - this.thd2, this.w, this.th);
@@ -133,10 +133,10 @@ Column.prototype.checkPlacement = function(){
 
     var mouseMS = (yo - mouseY)/z - yt*mspb + t;
     text(~~mouseMS, mouseX, mouseY-15);
-    rect(this.x, Math[SNAPPING_MODE]((mouseY-fy) / (mspb*z/d)) * (mspb/d*z) + fy - this.thd2, this.w, this.th);
+    //rect(this.x, Math[SNAPPING_MODE]((mouseY-fy) / (mspb*z/d)) * (mspb/d*z) + fy - this.thd2, this.w, this.th);
 
-    if(mp == 1){
-      const t = (Math[SNAPPING_MODE]((mouseMS/mspb)*d)*mspb)/d + (to % (mspb/d));
+    if(mp == 1 && !sN){
+      const t = (Math[SNAPPING_MODE](( (mouseMS-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
       if(this.type){
         // SV Notes unsupporting for now.
       }else{
@@ -148,6 +148,8 @@ Column.prototype.checkPlacement = function(){
 
     line(mouseX-15, mouseY, mouseX-5, mouseY);
     line(mouseX+15, mouseY, mouseX+5, mouseY);
+  }else if(mp && sN && sN[1] == this.id){
+    sN = null;
   }
 };
 let C, TP = [], tp;
@@ -222,7 +224,7 @@ function draw() {
       fl = Math.round(-yt + (t-to)/mspb)*d - 10;
       ll = Math.round(-yt + (t-to)/mspb)*d + 100;
 
-      for(var i = 0; i < C.length; i ++){
+      for(var i = C.length-1; i >= 0; i --){
         C[i].draw();
         C[i].checkPlacement();
       }
@@ -274,8 +276,8 @@ function keyPressed(){
   switch(keyCode){
     case 32:
       if(SongAudio.paused){
-        SongAudio.currentTime = (t - yt*mspb)/1000;
         SongAudio.play();
+        SongAudio.currentTime = (t - yt*mspb)/1000;
         yt = 0;
       }else{
         SongAudio.pause();
