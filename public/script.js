@@ -16,7 +16,7 @@ let bpm;
 let SNAPPING_MODE = "round";
 let INVERTED_SCROLL = false;
 
-let mp = false;
+let mp = false, mpx, mpy, mpMS, mr, mouseMS;
 let sN = null;  // selectedNote
 const keys = {};
 
@@ -79,12 +79,27 @@ Column.prototype.draw = function() {
     if(YRP <= 0) continue;
 
     push();
-    if(sN && sN[0] == j && sN[1] == this.id) tint(0, 155);
+    const sel = sN && sN[0] == j && sN[1] == this.id;
+    if(sel && sN[2]){
+      if(mouseIsPressed){
+        if(mp || mpMS === undefined) mpMS = mouseMS;
+
+        translate(mouseX - mpx, (mpMS-mouseMS) * z);
+        tint(255, 150);
+      }else if(mr == 1){
+        const t = (Math[SNAPPING_MODE](( (mouseMS-mpMS+N.t-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
+        N._t += t - N.t;
+        N.t = t;
+        mpMS = undefined;
+      }else{
+        sN[2] = false;
+      }
+    }
     if(this.type){
       if(Math.abs(mouseX - this.x) < this.w2 && Math.abs(mouseY - YRP + this.thd2) < this.thd2){
-        if(mp == 1) sN = [j, this.id];
+        if(mp == 1) sN = [j, this.id, true];
         if(mp == 3){ this.notes.splice(j, 1); mp = false; continue; }
-        tint(255, 100);
+        tint(255, 150);
       }
       image(svTile, this.x, YRP - this.thd2, this.w, this.th);
       stroke(N.i ? "#FF0000" : "#00FF00");
@@ -94,28 +109,41 @@ Column.prototype.draw = function() {
       fill(0);
       textAlign(CENTER, BOTTOM);
       text(N.i ? (N.bpm.toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), this.x, YRP);
+      if(sel){
+        noFill();
+        stroke(0, 100);
+        rect(this.x, YRP - this.thd2, this.w + 6, this.th + 6);
+      }
     }else{
       if(N.ln){
         const YRP_E = yo - (N._t - t + yt*mspb) * z;
         if(YRP_E > height+100) break;
+        const YRP_C = (YRP+YRP_E)/2 - this.thd2; // yrender pos center
 
-        if(Math.abs(mouseX - this.x) < this.w2 && mouseY > YRP-this.thd2 && mouseY < YRP_E){
-          if(mp == 1) sN = [j, this.id];
+        if(Math.abs(mouseX - this.x) < this.w2 && mouseY < YRP && mouseY > YRP_E){
+          if(mp == 1) sN = [j, this.id, true];
           if(mp == 3){ this.notes.splice(j, 1); mp = false; continue; }
-          tint(255, 100);
+          tint(255, 150);
         }
 
         const LN_H = YRP - YRP_E - this.th; // long note height
-        image(lnBody, this.x, (YRP+YRP_E)/2 - this.thd2, this.w, LN_H);
+        image(lnBody, this.x, YRP_C, this.w, LN_H);
         image(lnHead, this.x, YRP - this.thd2, this.w, this.th);
+
+        if(sel){
+          fill(255, 50);
+          stroke(0, 100);
+          strokeWeight(2);
+          rect(this.x, YRP_C, this.w + 6, LN_H + this.th*2 + 6);
+        }
         translate(this.x, YRP_E - this.thd2);
         scale(1, -1);
         image(lnHead, 0, 0, this.w, this.th);
       }else{
         if(Math.abs(mouseX - this.x) < this.w2 && Math.abs(mouseY - YRP + this.thd2) < this.thd2){
-          if(mp == 1) sN = [j, this.id];
-          if(mp == 3){ this.notes.splice(j, 1); mp = false; continue; }
-          tint(255, 100);
+          if(mp == 1) sN = [j, this.id, true];
+          if(mp == 3){ this.notes.splice(j, 1); mp = false; sN = null; continue; }
+          tint(255, 150);
         }
         image(tile, this.x, YRP - this.thd2, this.w, this.th);
       }
@@ -131,11 +159,10 @@ Column.prototype.checkPlacement = function(){
     //rect(this.x, Math.floor((mouseY+7.5) /mspb/z*d) *mspb*z/d + (yo%(mspb*z/d)) - 7.5, this.w, 15);
     //image(tile, this.x, Math[SNAPPING_MODE]((mouseY-fy) / (mspb*z/d)) * (mspb/d*z) + fy - this.thd2, this.w, this.th);
 
-    var mouseMS = (yo - mouseY)/z - yt*mspb + t;
     text(~~mouseMS, mouseX, mouseY-15);
     //rect(this.x, Math[SNAPPING_MODE]((mouseY-fy) / (mspb*z/d)) * (mspb/d*z) + fy - this.thd2, this.w, this.th);
 
-    if(mp == 1 && !sN){
+    if(mp == 1 && sN === undefined){
       const t = (Math[SNAPPING_MODE](( (mouseMS-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
       if(this.type){
         // SV Notes unsupporting for now.
@@ -204,6 +231,7 @@ function draw() {
       }
       break;
     case 3:
+      mouseMS = (yo - mouseY)/z - yt*mspb + t;
       if(tp && t < TP[tp].t){
         tp --;
         if(TP[tp].i){
@@ -228,6 +256,7 @@ function draw() {
         C[i].draw();
         C[i].checkPlacement();
       }
+      if(sN == null) sN = undefined;
       strokeWeight(1);
       stroke(0, 0, 0);
       line(LB_C, yo-1, RB_C, yo-1);
@@ -242,13 +271,17 @@ function draw() {
       text((TP[tp].i ? 1 : TP[tp].mspb).toFixed(2) + "x", RB_C + 100, 445);
 
       if(SongAudio && !SongAudio.ended && !SongAudio.paused) t = 1000*SongAudio.currentTime || 0;
-      mp = false;
+      mp = mr = false;
       break;
   }
 }
 function mousePressed(event){
   mp = event.button+1;
-  sN = null;
+  mpx = mouseX;
+  mpy = mouseY;
+}
+function mouseReleased(event){
+  mr = event.button+1;
 }
 function mouseWheel(event) {
   if(state !== 3) return;
