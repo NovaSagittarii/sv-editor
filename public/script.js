@@ -1,6 +1,6 @@
 let y = 0;      // Y Pos
-let z = 0.25;   // ZOOM
-let zR =64;     // ZOOM RECIPROCAL
+let z = .5;   // ZOOM
+let zR =32;     // ZOOM RECIPROCAL
 let t = 0;      // time [ms of song]
 let d = 2;      // divisor
 let to = 0;     // start time offset (tp.t)
@@ -93,19 +93,23 @@ Column.prototype.drawNotes = function() {
 
     push();
     const sel = sN && sN[0] == j && sN[1] == this.id;
-    if(sel && sN[2]){
-      if(mouseIsPressed){
-        if(mp || mpMS === undefined) mpMS = mouseMS;
-
-        translate(mouseX - mpx, (mpMS-mouseMS) * z);
-        tint(255, 150);
-      }else if(mr == 1){
-        const t = (Math[SNAPPING_MODE](( (mouseMS-mpMS+N.t-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
-        N._t += t - N.t;
-        N.t = t;
-        mpMS = undefined;
-      }else{
-        sN[2] = false;
+    if(sel){
+      if(sN[2]){
+        if(mouseIsPressed){
+          translate(mouseX - mpx, (mpMS-mouseMS) * z);
+          tint(255, 150);
+        }else if(mr == 1 && mouseX!==mpx && mouseY!==mpy){
+          const t = (Math[SNAPPING_MODE](( (mouseMS-mpMS+N.t-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
+          N._t += t - N.t;
+          N.t = t;
+        }else{
+          sN[2] = false;
+        }
+      }
+      if(!N.ln){
+        noFill();
+        stroke(255, 100);
+        rect(this.x, YRP - this.thd2, this.w + 6, this.th + 6);
       }
     }
     if(this.type){
@@ -122,11 +126,6 @@ Column.prototype.drawNotes = function() {
       fill(0);
       textAlign(CENTER, BOTTOM);
       text(N.i ? (N.bpm.toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), this.x, YRP);
-      if(sel){
-        noFill();
-        stroke(0, 100);
-        rect(this.x, YRP - this.thd2, this.w + 6, this.th + 6);
-      }
     }else{
       if(N.ln){
         const YRP_E = yo - (N._t - t + yt*mspb) * z;
@@ -145,7 +144,7 @@ Column.prototype.drawNotes = function() {
 
         if(sel){
           fill(255, 50);
-          stroke(0, 100);
+          stroke(255, 100);
           strokeWeight(2);
           rect(this.x, YRP_C, this.w + 6, LN_H + this.th*2 + 6);
         }
@@ -167,8 +166,8 @@ Column.prototype.drawNotes = function() {
 };
 Column.prototype.checkPlacement = function(){
   if(Math.abs(mouseX - this.x) < this.w2){
-    stroke(0, 0, 0, 100);
-    fill(0, 0, 0, 50 + Math.cos(frameCount/8)*20);
+    stroke(LINE_COLOR);
+    //fill(0, 0, 0, 50 + Math.cos(frameCount/8)*20);
     //rect(this.x, Math.floor((mouseY+7.5) /mspb/z*d) *mspb*z/d + (yo%(mspb*z/d)) - 7.5, this.w, 15);
     //image(tile, this.x, Math[SNAPPING_MODE]((mouseY-fy) / (mspb*z/d)) * (mspb/d*z) + fy - this.thd2, this.w, this.th);
 
@@ -196,6 +195,7 @@ let C, TP = [], tp;
 let state = 0;
 let LB_C, RB_C, ZERO_CP, ZERO_W;
 
+let sp_t; // scroll pause timeout
 let tile, svTile, lnHead, lnBody;
 
 function calculateBoundaries(){
@@ -299,6 +299,7 @@ function mousePressed(event){
   mp = event.button+1;
   mpx = mouseX;
   mpy = mouseY;
+  mpMS = mouseMS;
 }
 function mouseReleased(event){
   mr = event.button+1;
@@ -312,17 +313,31 @@ function mouseWheel(event) {
     updateLineBuffers();
     return false;
   }
+
+  if(!SongAudio.paused && !sp_t){
+    SongAudio.pause();
+    sp_t = true;
+  }
+  if(SongAudio.paused && sp_t){
+    clearTimeout(sp_t);
+    sp_t = setTimeout(() => {
+      sp_t = 0;
+      SongAudio.play();
+    }, 150);
+  }
   if(event.delta < 0 == INVERTED_SCROLL){
-    if(SongAudio.paused){
+    if(SongAudio.paused && !sp_t){
       yt = Math.floor(yt * d - 1 / d) / d;
     }else{
       SongAudio.currentTime += mspb/d/1000;
+      t = SongAudio.currentTime*1000;
     }
   }else{
-    if(SongAudio.paused){
+    if(SongAudio.paused && !sp_t){
       yt = Math.ceil(yt * d + 1 / d) / d;
     }else{
       SongAudio.currentTime -= mspb/d/1000;
+      t = SongAudio.currentTime*1000;
     }
   }
 }
@@ -449,7 +464,12 @@ folder.addEventListener('change', e => {
           SongAudio = new Audio(e.target.result);
           SongAudio.onloadeddata = () => {
             console.info(`Finished loading audio file. Took ${Math.floor(performance.now() - parseDone)} ms.`);
-            snapTime();
+            tp = 0;
+            mspb = TP[0].mspb;
+            bpm = TP[0].bpm;
+            t = to = TP[0].t;
+            SongAudio.currentTime = t/1000;
+            updateTPInfo();
             SongAudio.play();
             state = 2;
           };
