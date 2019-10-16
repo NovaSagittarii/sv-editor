@@ -20,11 +20,19 @@ let mp = false, mpx, mpy, mpMS, mr, mouseMS;
 let sN = null;  // selectedNote
 const keys = {};
 
+const COLUMN_FILL = "#202020";
+const DSTROKE = ["#FFFFFF", "#FF0000", "#4444FF", "#CCCC00", "#AAAAAA", "#C800C8", "#8C008C", "#AAAAAA"];
+//               1/1        1/2        1/4        1/8        1/16       1/3        1/6        1/12
+const LINE_COLOR = DSTROKE[0];
 const colors = {
-  "1": ["#000000"],
-  "2": ["#000000","#FF0000"],
-  "3": ["#FF0000","#C800C8","#C800C8"],
-  "4": ["#000000","#0000FF","#FF0000","#0000FF"]
+  "1": [DSTROKE[0]],
+  "2": [DSTROKE[0],DSTROKE[1]],
+  "3": [DSTROKE[0],DSTROKE[5],DSTROKE[5]],
+  "4": [DSTROKE[0],DSTROKE[2],DSTROKE[1],DSTROKE[2]],
+  "6": [DSTROKE[0],DSTROKE[6],DSTROKE[5],DSTROKE[1],DSTROKE[6],DSTROKE[5]],
+  "8": [DSTROKE[0],DSTROKE[3],DSTROKE[2],DSTROKE[3],DSTROKE[1],DSTROKE[3],DSTROKE[2],DSTROKE[3]],
+  "12": [DSTROKE[0],DSTROKE[7],DSTROKE[6],DSTROKE[7],DSTROKE[5],DSTROKE[7],DSTROKE[1],DSTROKE[7],DSTROKE[6],DSTROKE[7],DSTROKE[5],DSTROKE[7]],
+  "16": [DSTROKE[0],DSTROKE[4],DSTROKE[3],DSTROKE[4],DSTROKE[2],DSTROKE[4],DSTROKE[3],DSTROKE[4],DSTROKE[1],DSTROKE[4],DSTROKE[3],DSTROKE[4],DSTROKE[2],DSTROKE[4],DSTROKE[3],DSTROKE[4]],
 };
 const TimingPoint = function(to, mspb, m, ss, si, v, i, k){
   this.t = to;
@@ -56,8 +64,9 @@ const Column = function(x, w, t){
   this.id = C.length;
 };
 Column.prototype.draw = function() {
-  noFill();
-  stroke(0, 0, 0);
+  fill(COLUMN_FILL);
+  stroke(LINE_COLOR);
+  strokeWeight(2);
   rect(this.x, 300, this.w, height*2);
   for(let j = fl; j < ll; j ++){
     const YRP = yo-((to-t)*d+(j+yt*d)*mspb)/d*z; // Y RENDER POSITION
@@ -211,17 +220,19 @@ function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
 }
 function draw() {
-  background(225);
   switch(state){
     case 0:
+      background(225);
       fill(255);
       text(".....".substring(0, (frameCount/30)%7), width/2, 200);
       break;
     case 1:
+      background(225);
       fill(255);
       text("Parsing", width/2, 200);
     case 2:
       fill(255);
+      background(225);
       if(SongAudio){
         text(`${SongAudio.currentTime.toFixed(1)} / ${SongAudio.duration.toFixed(1)}`, width/2, 200);
         if(C){
@@ -231,6 +242,7 @@ function draw() {
       }
       break;
     case 3:
+      background(70);
       mouseMS = (yo - mouseY)/z - yt*mspb + t;
       if(tp && t < TP[tp].t){
         tp --;
@@ -249,20 +261,20 @@ function draw() {
         }
       }
 
-      fl = Math.round(-yt + (t-to)/mspb)*d - 10;
-      ll = Math.round(-yt + (t-to)/mspb)*d + 100;
+      fl = Math.round(-yt + (t-to)/mspb)*d - (3*zR*d>>7);
+      ll = Math.round(-yt + (t-to)/mspb)*d + (9*zR*d>>6);
 
-      for(var i = C.length-1; i >= 0; i --){
+      for(var i = 0; i < C.length; i ++){
         C[i].draw();
         C[i].checkPlacement();
       }
       if(sN == null) sN = undefined;
       strokeWeight(1);
-      stroke(0, 0, 0);
+      stroke(LINE_COLOR);
       line(LB_C, yo-1, RB_C, yo-1);
       line(LB_C, yo+1, RB_C, yo+1);
       noStroke();
-      fill(0, 0, 0, 255);
+      fill(255, 200);
       rect(ZERO_CP, yo-(-t*d+(yt*d)*mspb)/d*z, ZERO_W, 3);
       textSize(12);
       text("Z="+zR, RB_C+100, 400);
@@ -286,7 +298,9 @@ function mouseReleased(event){
 function mouseWheel(event) {
   if(state !== 3) return;
   if(keys[17]){
-    d = constrain((event.delta > 0) ? d>>1 : d<<1, 1, 4);
+    const temp_d = d;
+    d = (event.delta > 0) ? d>>1 : d<<1;
+    if(d < 1 || d > 16) d = temp_d; // REVERT !!
     return false;
   }
   if(event.delta < 0 == INVERTED_SCROLL){
@@ -413,7 +427,7 @@ folder.addEventListener('change', e => {
         tp = 0;
         mspb = TP[0].mspb;
         bpm = TP[0].bpm;
-        to = TP[0].t;
+        t = to = TP[0].t;
 
         const parse = new FileReader();
         const parseStart = performance.now();
