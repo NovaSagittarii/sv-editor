@@ -10,6 +10,8 @@ let yc = 0;     // y correction (when pointer is misaligned with divisors)
 let fy = 0;    // first line y (correction for hovering)
 let fl = 0;     // first line (calculation)
 let ll = 0;     // last line (calculation)
+let flb = 0;    // first line buffer
+let llb = 0;    // last line buffer
 let mspb;       // milliseconds per beat
 let bpm;
 
@@ -78,6 +80,8 @@ Column.prototype.draw = function() {
     stroke(colors[d][Math.abs(j) % d]);
     line(this.LB, YRP, this.RB, YRP);
   }
+};
+Column.prototype.drawNotes = function() {
   noStroke();
   fill(0);
   for(var j = this.notes.length-1; j >= 0; j --){
@@ -200,6 +204,18 @@ function calculateBoundaries(){
   ZERO_CP = (C[0].x - C[0].w/2 + C[C.length-1].x + C[C.length-1].w/2) / 2;
   ZERO_W = RB_C-LB_C-15;
 }
+function updateLineBuffers(){
+  flb = (155/mspb*zR*d>>3); // *3  * 414 [*2] xd
+  llb = (1863/mspb*zR*d>>5);// *14 * 414
+}
+function updateTPInfo(){
+  if(TP[tp].i){
+    bpm = TP[tp].bpm;
+    mspb = TP[tp].mspb;
+    to = TP[tp].t;
+    updateLineBuffers();
+  }
+}
 
 function preload(){
   tile = loadImage('https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-note2.png?v=1570597631148'); //loadImage('/assets/mania-note2.png');
@@ -246,28 +262,20 @@ function draw() {
       mouseMS = (yo - mouseY)/z - yt*mspb + t;
       if(tp && t < TP[tp].t){
         tp --;
-        if(TP[tp].i){
-          bpm = TP[tp].bpm;
-          mspb = TP[tp].mspb;
-          to = TP[tp].t;
-        }
+        updateTPInfo();
       }
       if(tp+1 < TP.length && t >= TP[tp+1].t){
         tp ++;
-        if(TP[tp].i){
-          bpm = TP[tp].bpm;
-          mspb = TP[tp].mspb;
-          to = TP[tp].t;
-        }
+        updateTPInfo();
       }
 
-      fl = Math.round(-yt + (t-to)/mspb)*d - (3*zR*d>>7);
-      ll = Math.round(-yt + (t-to)/mspb)*d + (9*zR*d>>6);
+      fl = Math.round(-yt + (t-to)/mspb)*d - flb;
+      ll = Math.round(-yt + (t-to)/mspb)*d + llb;
 
-      for(var i = 0; i < C.length; i ++){
-        C[i].draw();
-        C[i].checkPlacement();
-      }
+      for(var i = 0; i < C.length; i ++) C[i].draw();
+      for(var i = 0; i < C.length; i ++) C[i].drawNotes();
+      for(var i = 0; i < C.length; i ++) C[i].checkPlacement();
+
       if(sN == null) sN = undefined;
       strokeWeight(1);
       stroke(LINE_COLOR);
@@ -301,6 +309,7 @@ function mouseWheel(event) {
     const temp_d = d;
     d = (event.delta > 0) ? d>>1 : d<<1;
     if(d < 1 || d > 16) d = temp_d; // REVERT !!
+    updateLineBuffers();
     return false;
   }
   if(event.delta < 0 == INVERTED_SCROLL){
@@ -341,6 +350,7 @@ function keyPressed(){
     case 187: // =
       z = 16 / (-- zR);
   }
+  updateLineBuffers();
   d = constrain(d, 1, 4);
   yc = -yt%(1/d)*d;
   return false;
@@ -428,6 +438,7 @@ folder.addEventListener('change', e => {
         mspb = TP[0].mspb;
         bpm = TP[0].bpm;
         t = to = TP[0].t;
+        updateTPInfo();
 
         const parse = new FileReader();
         const parseStart = performance.now();
