@@ -23,7 +23,7 @@ let sN = null;  // selectedNote
 const keys = {};
 
 const COLUMN_FILL = "#202020";
-const DSTROKE = ["#FFFFFF", "#FF0000", "#4444FF", "#CCCC00", "#AAAAAA", "#C800C8", "#8C008C", "#AAAAAA"];
+const DSTROKE = ["#FFFFFF", "#FF0000", "#4444FF", "#CCCC00", "#777777", "#C800C8", "#8C008C", "#777777"];
 //               1/1        1/2        1/4        1/8        1/16       1/3        1/6        1/12
 const LINE_COLOR = DSTROKE[0];
 const colors = {
@@ -68,7 +68,7 @@ const Column = function(x, w, t){
 Column.prototype.draw = function() {
   fill(COLUMN_FILL);
   stroke(LINE_COLOR);
-  strokeWeight(2);
+  strokeWeight(1);
   rect(this.x, 300, this.w, height*2);
   for(let j = fl; j < ll; j ++){
     const YRP = yo-((to-t)*d+(j+yt*d)*mspb)/d*z; // Y RENDER POSITION
@@ -77,6 +77,7 @@ Column.prototype.draw = function() {
       fy = YRP;// + mspb/d*z;
       break;
     }
+    strokeWeight(Math.abs(j) % d ? 1 : 3);
     stroke(colors[d][Math.abs(j) % d]);
     line(this.LB, YRP, this.RB, YRP);
   }
@@ -228,6 +229,7 @@ function setup() {
   background(255, 255, 255);
   frameRate(240);
   imageMode(CENTER);
+  strokeCap(SQUARE);
   textAlign(CENTER, CENTER);
   textSize(100);
   rectMode(CENTER);
@@ -268,14 +270,12 @@ function draw() {
         tp ++;
         updateTPInfo();
       }
-
       fl = Math.round(-yt + (t-to)/mspb)*d - flb;
       ll = Math.round(-yt + (t-to)/mspb)*d + llb;
 
       for(var i = 0; i < C.length; i ++) C[i].draw();
       for(var i = 0; i < C.length; i ++) C[i].drawNotes();
       for(var i = 0; i < C.length; i ++) C[i].checkPlacement();
-
       if(sN == null) sN = undefined;
       strokeWeight(1);
       stroke(LINE_COLOR);
@@ -313,7 +313,6 @@ function mouseWheel(event) {
     updateLineBuffers();
     return false;
   }
-
   if(!SongAudio.paused && !sp_t){
     SongAudio.pause();
     sp_t = true;
@@ -374,7 +373,7 @@ function keyReleased(){
   delete keys[keyCode];
 }
 function snapTime(){
-  const msOffset = (SongAudio.currentTime*1000 - to) % (mspb/d);
+  const msOffset = (t-to) % (mspb/d);
   t -= msOffset;
   yt = -msOffset/mspb;
 }
@@ -454,13 +453,11 @@ folder.addEventListener('change', e => {
         bpm = TP[0].bpm;
         t = to = TP[0].t;
         updateTPInfo();
-
         const parse = new FileReader();
         const parseStart = performance.now();
         parse.onload = async e => {
           const parseDone = performance.now();
           console.info(`Finished parsing audio file. Took ${Math.floor(performance.now() - parseStart)} ms.`);
-
           SongAudio = new Audio(e.target.result);
           SongAudio.onloadeddata = () => {
             console.info(`Finished loading audio file. Took ${Math.floor(performance.now() - parseDone)} ms.`);
