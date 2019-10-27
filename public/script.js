@@ -36,6 +36,7 @@ const colors = {
   "12": [DSTROKE[0],DSTROKE[7],DSTROKE[6],DSTROKE[7],DSTROKE[5],DSTROKE[7],DSTROKE[1],DSTROKE[7],DSTROKE[6],DSTROKE[7],DSTROKE[5],DSTROKE[7]],
   "16": [DSTROKE[0],DSTROKE[4],DSTROKE[3],DSTROKE[4],DSTROKE[2],DSTROKE[4],DSTROKE[3],DSTROKE[4],DSTROKE[1],DSTROKE[4],DSTROKE[3],DSTROKE[4],DSTROKE[2],DSTROKE[4],DSTROKE[3],DSTROKE[4]],
 };
+const divisors = Object.keys(colors).map(e => parseInt(e));
 const TimingPoint = function(to, mspb, m, ss, si, v, i, k){
   this.t = to;
   this.mspb = mspb > 0 ? mspb : -100/mspb;
@@ -112,21 +113,28 @@ Column.prototype.drawNotes = function() {
         stroke(255, 100);
         rect(this.x, YRP - this.thd2, this.w + 6, this.th + 6);
       }
+      if(this.type){
+
+      }
     }
     if(this.type){
       if(Math.abs(mouseX - this.x) < this.w2 && Math.abs(mouseY - YRP + this.thd2) < this.thd2){
         if(mp == 1) sN = [j, this.id, true];
-        if(mp == 3){ this.notes.splice(j, 1); mp = false; continue; }
+        if(mp == 3){ this.notes.splice(j, 1); mp = false; sN = null; continue; }
         tint(255, 150);
       }
       image(svTile, this.x, YRP - this.thd2, this.w, this.th);
       stroke(N.i ? "#FF0000" : "#00FF00");
-      strokeWeight(2);
+      strokeWeight(1);
       line(LB_C, YRP, RB_C, YRP);
       stroke(255, 100);
       fill(0);
       textAlign(CENTER, BOTTOM);
       text(N.i ? (N.bpm.toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), this.x, YRP);
+      fill(LINE_COLOR);
+      noStroke();
+      textAlign(LEFT, CENTER);
+      text(N.i ? (N.bpm.toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), RB_C+5, YRP);
     }else{
       if(N.ln){
         const YRP_E = yo - (N._t - t + yt*mspb) * z;
@@ -135,7 +143,7 @@ Column.prototype.drawNotes = function() {
 
         if(Math.abs(mouseX - this.x) < this.w2 && mouseY < YRP && mouseY > YRP_E){
           if(mp == 1) sN = [j, this.id, true];
-          if(mp == 3){ this.notes.splice(j, 1); mp = false; continue; }
+          if(mp == 3){ this.notes.splice(j, 1); mp = false; sN = null; continue; }
           tint(255, 150);
         }
 
@@ -168,6 +176,7 @@ Column.prototype.drawNotes = function() {
 Column.prototype.checkPlacement = function(){
   if(Math.abs(mouseX - this.x) < this.w2){
     stroke(LINE_COLOR);
+    strokeWeight(2);
     //fill(0, 0, 0, 50 + Math.cos(frameCount/8)*20);
     //rect(this.x, Math.floor((mouseY+7.5) /mspb/z*d) *mspb*z/d + (yo%(mspb*z/d)) - 7.5, this.w, 15);
     //image(tile, this.x, Math[SNAPPING_MODE]((mouseY-fy) / (mspb*z/d)) * (mspb/d*z) + fy - this.thd2, this.w, this.th);
@@ -270,12 +279,14 @@ function draw() {
         tp ++;
         updateTPInfo();
       }
+
       fl = Math.round(-yt + (t-to)/mspb)*d - flb;
       ll = Math.round(-yt + (t-to)/mspb)*d + llb;
 
       for(var i = 0; i < C.length; i ++) C[i].draw();
       for(var i = 0; i < C.length; i ++) C[i].drawNotes();
       for(var i = 0; i < C.length; i ++) C[i].checkPlacement();
+
       if(sN == null) sN = undefined;
       strokeWeight(1);
       stroke(LINE_COLOR);
@@ -313,6 +324,7 @@ function mouseWheel(event) {
     updateLineBuffers();
     return false;
   }
+
   if(!SongAudio.paused && !sp_t){
     SongAudio.pause();
     sp_t = true;
@@ -356,8 +368,8 @@ function keyPressed(){
       break;
     case 39: yt = Math.floor(yt * d - 1/d) / d; SongAudio.currentTime -= mspb/d/1000; break; // LEFT
     case 37: yt = Math.ceil(yt * d + 1/d) / d; SongAudio.currentTime += mspb/d/1000; break; // RIGHT
-    case 38: d ++; break; // UP
-    case 40: d --; break; // DOWN
+    case 38: d = divisors[divisors.indexOf(d)+1] || d; break; // UP
+    case 40: d = divisors[divisors.indexOf(d)-1] || d; break; // DOWN
     case 189: // -
       z = 16 / (++ zR);
       break;
@@ -365,7 +377,7 @@ function keyPressed(){
       z = 16 / (-- zR);
   }
   updateLineBuffers();
-  d = constrain(d, 1, 4);
+  d = constrain(d, 1, 16);
   yc = -yt%(1/d)*d;
   return false;
 };
@@ -453,11 +465,13 @@ folder.addEventListener('change', e => {
         bpm = TP[0].bpm;
         t = to = TP[0].t;
         updateTPInfo();
+
         const parse = new FileReader();
         const parseStart = performance.now();
         parse.onload = async e => {
           const parseDone = performance.now();
           console.info(`Finished parsing audio file. Took ${Math.floor(performance.now() - parseStart)} ms.`);
+
           SongAudio = new Audio(e.target.result);
           SongAudio.onloadeddata = () => {
             console.info(`Finished loading audio file. Took ${Math.floor(performance.now() - parseDone)} ms.`);
