@@ -66,6 +66,9 @@ const Column = function(x, w, t){
   this.thd2 = this.th/2;
   this.id = C.length;
 };
+Column.prototype.mouseOver = function(){
+  return Math.abs(mouseX - this.x) < this.w2;
+};
 Column.prototype.draw = function() {
   fill(COLUMN_FILL);
   stroke(LINE_COLOR);
@@ -86,7 +89,7 @@ Column.prototype.draw = function() {
 Column.prototype.drawNotes = function() {
   noStroke();
   fill(0);
-  for(var j = this.notes.length-1; j >= 0; j --){
+  for(let j = this.notes.length-1; j >= 0; j --){
     const N = this.notes[j];
     const YRP = yo - (N.t - t + yt*mspb) * z;
     //rect(this.x, YRP-4, this.w, 8);
@@ -94,16 +97,26 @@ Column.prototype.drawNotes = function() {
     if(YRP <= 0) continue;
 
     push();
-    const sel = sN && sN[0] == j && sN[1] == this.id;
+    const sel = sN && sN[0] === N;
     if(sel){
       if(sN[2]){
         if(mouseIsPressed){
           translate(mouseX - mpx, (mpMS-mouseMS) * z);
           tint(255, 150);
-        }else if(mr == 1 && mouseX!==mpx && mouseY!==mpy){
+        }else if(mr == 1 && mouseX!==mpx && mouseY!==mpy){ // when selected note gets released (assuming it got dragged)
           const t = (Math[SNAPPING_MODE](( (mouseMS-mpMS+N.t-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
           N._t += t - N.t;
           N.t = t;
+          if(!this.mouseOver()){ // shifting column of note
+            for(let c = 0; c < C.length; c ++){
+              if(C[c].mouseOver()){
+                C[c].notes.push(N);
+                C[c].notes.sort((a,b) => a.t-b.t);
+                this.notes.splice(j, 1);
+                break;
+              }
+            }
+          }
         }else{
           sN[2] = false;
         }
@@ -118,19 +131,20 @@ Column.prototype.drawNotes = function() {
       }
     }
     if(this.type){
-      if(Math.abs(mouseX - this.x) < this.w2 && Math.abs(mouseY - YRP + this.thd2) < this.thd2){
-        if(mp == 1) sN = [j, this.id, true];
+      if(this.mouseOver() && Math.abs(mouseY - YRP + this.thd2) < this.thd2){
+        if(mp == 1) sN = [N, this.id, true];
         if(mp == 3){ this.notes.splice(j, 1); mp = false; sN = null; continue; }
         tint(255, 150);
       }
       image(svTile, this.x, YRP - this.thd2, this.w, this.th);
+      if(sel && sN[2] && mouseIsPressed) translate(-(mouseX - mpx), 0);
       stroke(N.i ? "#FF0000" : "#00FF00");
       strokeWeight(1);
       line(LB_C, YRP, RB_C, YRP);
-      stroke(255, 100);
+      /*stroke(255, 100);
       fill(0);
       textAlign(CENTER, BOTTOM);
-      text(N.i ? (N.bpm.toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), this.x, YRP);
+      text(N.i ? (N.bpm.toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), this.x, YRP);*/
       fill(LINE_COLOR);
       noStroke();
       textAlign(LEFT, CENTER);
@@ -141,8 +155,8 @@ Column.prototype.drawNotes = function() {
         if(YRP_E > height+100) break;
         const YRP_C = (YRP+YRP_E)/2 - this.thd2; // yrender pos center
 
-        if(Math.abs(mouseX - this.x) < this.w2 && mouseY < YRP && mouseY > YRP_E){
-          if(mp == 1) sN = [j, this.id, true];
+        if(this.mouseOver() && mouseY < YRP && mouseY > YRP_E){
+          if(mp == 1) sN = [N, this.id, true];
           if(mp == 3){ this.notes.splice(j, 1); mp = false; sN = null; continue; }
           tint(255, 150);
         }
@@ -161,8 +175,8 @@ Column.prototype.drawNotes = function() {
         scale(1, -1);
         image(lnHead, 0, 0, this.w, this.th);
       }else{
-        if(Math.abs(mouseX - this.x) < this.w2 && Math.abs(mouseY - YRP + this.thd2) < this.thd2){
-          if(mp == 1) sN = [j, this.id, true];
+        if(this.mouseOver() && Math.abs(mouseY - YRP + this.thd2) < this.thd2){
+          if(mp == 1) sN = [N, this.id, true];
           if(mp == 3){ this.notes.splice(j, 1); mp = false; sN = null; continue; }
           tint(255, 150);
         }
@@ -174,7 +188,7 @@ Column.prototype.drawNotes = function() {
   }
 };
 Column.prototype.checkPlacement = function(){
-  if(Math.abs(mouseX - this.x) < this.w2){
+  if(this.mouseOver()){
     stroke(LINE_COLOR);
     strokeWeight(2);
     //fill(0, 0, 0, 50 + Math.cos(frameCount/8)*20);
@@ -283,9 +297,9 @@ function draw() {
       fl = Math.round(-yt + (t-to)/mspb)*d - flb;
       ll = Math.round(-yt + (t-to)/mspb)*d + llb;
 
-      for(var i = 0; i < C.length; i ++) C[i].draw();
-      for(var i = 0; i < C.length; i ++) C[i].drawNotes();
-      for(var i = 0; i < C.length; i ++) C[i].checkPlacement();
+      for(let i = 0; i < C.length; i ++) C[i].draw();
+      for(let i = 0; i < C.length; i ++) C[i].drawNotes();
+      for(let i = 0; i < C.length; i ++) C[i].checkPlacement();
 
       if(sN == null) sN = undefined;
       strokeWeight(1);
