@@ -135,7 +135,7 @@ Column.prototype.drawNotes = function() {
       if(sel) sN[3] = false;
       if(this.mouseOver() && Math.abs(mouseY - YRP + this.thd2) < this.thd2){
         if(mp == 1) sN = [N, this.id, true];
-        if(mp == 3){ this.notes.splice(j, 1); mp = false; sN = null; continue; }
+        if(mp == 3){ this.notes.splice(j, 1); TP.splice(TP.indexOf(N), 1); mp = false; sN = null; continue; }
         if(sel) sN[3] = true;
         tint(255, 150);
       }
