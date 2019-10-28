@@ -132,16 +132,19 @@ Column.prototype.drawNotes = function() {
       }
     }
     if(this.type){
+      if(sel) sN[3] = false;
       if(this.mouseOver() && Math.abs(mouseY - YRP + this.thd2) < this.thd2){
         if(mp == 1) sN = [N, this.id, true];
         if(mp == 3){ this.notes.splice(j, 1); mp = false; sN = null; continue; }
+        if(sel) sN[3] = true;
         tint(255, 150);
       }
       image(svTile, this.x, YRP - this.thd2, this.w, this.th);
       if(sel && sN[2] && mouseIsPressed) translate(-(mouseX - mpx), 0);
       stroke(N.i ? "#FF0000" : "#00FF00");
-      strokeWeight(sel ? 2 : 1);
+      strokeWeight(1);
       line(LB_C, YRP, RB_C, YRP);
+      if(sel) line(LB_C, YRP+1, RB_C, YRP+1);
       /*stroke(255, 100);
       fill(0);
       textAlign(CENTER, BOTTOM);
@@ -149,7 +152,8 @@ Column.prototype.drawNotes = function() {
       fill(LINE_COLOR);
       noStroke();
       textAlign(N.i ? RIGHT : LEFT, CENTER);
-      text(N.i ? (N.bpm.toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), N.i ? LB_C-5 : RB_C+5, YRP);
+      //text(N.i ? (N.bpm.toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), N.i ? LB_C-5 : RB_C+5, YRP);
+      text(N.i ? (N.bpm.toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), N.i ? LB_C-5 : RB_C+5, (TP[tp] == N) ? Math.min(YRP, yo) : Math.min(YRP, yo + 20*(tp-TP.indexOf(N))));
     }else{
       if(N.ln){
         const YRP_E = yo - (N._t - t + yt*mspb) * z;
@@ -203,6 +207,11 @@ Column.prototype.checkPlacement = function(){
       const t = (Math[SNAPPING_MODE](( (mouseMS-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
       if(this.type){
         // SV Notes unsupporting for now.
+        const lTP = TP.filter(e => (e.t <= mouseMS)).reverse()[0];
+        const nTP = new TimingPoint(t, lTP.mspb, lTP.m, lTP.ss, lTP.si, lTP.v, false, lTP.k);
+        TP.push(nTP);
+        TP.sort((a,b) => a.t-b.t);
+        this.notes.push(nTP);
       }else{
         this.notes.push(new Note(null, null, t, 0));
       }
@@ -335,7 +344,7 @@ function mouseReleased(event){
 }
 function mouseWheel(event) {
   if(state !== 3) return;
-  if(sN && sN[0] instanceof TimingPoint){
+  if(sN && sN[0] instanceof TimingPoint && sN[3]){
     sN[0].mspb += (event.delta < 0 == INVERTED_SCROLL ? -1 : 1) / 10 * (keys[16]?5:1) / (keys[17]?10:1);
     return false;
   }else if(keys[17]){
