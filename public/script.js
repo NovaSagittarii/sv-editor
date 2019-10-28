@@ -110,6 +110,7 @@ Column.prototype.drawNotes = function() {
           if(!this.mouseOver()){ // shifting column of note
             for(let c = 0; c < C.length; c ++){
               if(C[c].mouseOver()){
+                if(C[c].type != this.type) break; // column type (note/TP) mismatch
                 C[c].notes.push(N);
                 C[c].notes.sort((a,b) => a.t-b.t);
                 this.notes.splice(j, 1);
@@ -139,7 +140,7 @@ Column.prototype.drawNotes = function() {
       image(svTile, this.x, YRP - this.thd2, this.w, this.th);
       if(sel && sN[2] && mouseIsPressed) translate(-(mouseX - mpx), 0);
       stroke(N.i ? "#FF0000" : "#00FF00");
-      strokeWeight(1);
+      strokeWeight(sel + 1);
       line(LB_C, YRP, RB_C, YRP);
       /*stroke(255, 100);
       fill(0);
@@ -352,14 +353,14 @@ function mouseWheel(event) {
   }
   if(event.delta < 0 == INVERTED_SCROLL){
     if(SongAudio.paused && !sp_t){
-      yt = Math.floor(yt * d - 1 / d) / d;
+      yt = Math.ceil(yt * d) / d - 1/d;
     }else{
       SongAudio.currentTime += mspb/d/1000;
       t = SongAudio.currentTime*1000;
     }
   }else{
     if(SongAudio.paused && !sp_t){
-      yt = Math.ceil(yt * d + 1 / d) / d;
+      yt = Math.round(yt * d) / d + 1/d;
     }else{
       SongAudio.currentTime -= mspb/d/1000;
       t = SongAudio.currentTime*1000;
@@ -380,8 +381,8 @@ function keyPressed(){
         snapTime();
       }
       break;
-    case 39: yt = Math.floor(yt * d - 1/d) / d; SongAudio.currentTime -= mspb/d/1000; break; // LEFT
-    case 37: yt = Math.ceil(yt * d + 1/d) / d; SongAudio.currentTime += mspb/d/1000; break; // RIGHT
+    case 39: yt = Math.ceil(yt * d) / d - 1/d; SongAudio.currentTime -= mspb/d/1000; break; // LEFT
+    case 37: yt = Math.round(yt * d) / d + 1/d; SongAudio.currentTime += mspb/d/1000; break; // RIGHT
     case 38: d = divisors[divisors.indexOf(d)+1] || d; break; // UP
     case 40: d = divisors[divisors.indexOf(d)-1] || d; break; // DOWN
     case 189: // -
