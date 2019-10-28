@@ -59,3 +59,10 @@ h1 {
 
 .valid { background: #dfd; }
 .invalid { background: #fdf; }
+
+#SongAudio {
+  display: block !important;
+  position: absolute;
+  width: 100%;
+  bottom: 0;
+}

@@ -140,7 +140,7 @@ Column.prototype.drawNotes = function() {
       image(svTile, this.x, YRP - this.thd2, this.w, this.th);
       if(sel && sN[2] && mouseIsPressed) translate(-(mouseX - mpx), 0);
       stroke(N.i ? "#FF0000" : "#00FF00");
-      strokeWeight(sel + 1);
+      strokeWeight(sel ? 2 : 1);
       line(LB_C, YRP, RB_C, YRP);
       /*stroke(255, 100);
       fill(0);
@@ -148,8 +148,8 @@ Column.prototype.drawNotes = function() {
       text(N.i ? (N.bpm.toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), this.x, YRP);*/
       fill(LINE_COLOR);
       noStroke();
-      textAlign(LEFT, CENTER);
-      text(N.i ? (N.bpm.toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), RB_C+5, YRP);
+      textAlign(N.i ? RIGHT : LEFT, CENTER);
+      text(N.i ? (N.bpm.toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), N.i ? LB_C-5 : RB_C+5, YRP);
     }else{
       if(N.ln){
         const YRP_E = yo - (N._t - t + yt*mspb) * z;
@@ -280,6 +280,9 @@ function draw() {
         if(C){
           state = 3;
           SongAudio.pause();
+          SongAudio.controls = true;
+          SongAudio.id = "SongAudio";
+          document.body.append(SongAudio);
         }
       }
       break;
@@ -332,38 +335,41 @@ function mouseReleased(event){
 }
 function mouseWheel(event) {
   if(state !== 3) return;
-  if(keys[17]){
+  if(sN && sN[0] instanceof TimingPoint){
+    sN[0].mspb += (event.delta < 0 == INVERTED_SCROLL ? -1 : 1) / 10 * (keys[16]?5:1) / (keys[17]?10:1);
+    return false;
+  }else if(keys[17]){
     const temp_d = d;
     d = (event.delta > 0) ? d>>1 : d<<1;
     if(d < 1 || d > 16) d = temp_d; // REVERT !!
     updateLineBuffers();
     return false;
-  }
-
-  if(!SongAudio.paused && !sp_t){
-    SongAudio.pause();
-    sp_t = true;
-  }
-  if(SongAudio.paused && sp_t){
-    clearTimeout(sp_t);
-    sp_t = setTimeout(() => {
-      sp_t = 0;
-      SongAudio.play();
-    }, 150);
-  }
-  if(event.delta < 0 == INVERTED_SCROLL){
-    if(SongAudio.paused && !sp_t){
-      yt = Math.ceil(yt * d) / d - 1/d;
-    }else{
-      SongAudio.currentTime += mspb/d/1000;
-      t = SongAudio.currentTime*1000;
-    }
   }else{
-    if(SongAudio.paused && !sp_t){
-      yt = Math.round(yt * d) / d + 1/d;
+    if(!SongAudio.paused && !sp_t){
+      SongAudio.pause();
+      sp_t = true;
+    }
+    if(SongAudio.paused && sp_t){
+      clearTimeout(sp_t);
+      sp_t = setTimeout(() => {
+        sp_t = 0;
+        SongAudio.play();
+      }, 150);
+    }
+    if(event.delta < 0 == INVERTED_SCROLL){
+      if(SongAudio.paused && !sp_t){
+        yt = Math.ceil(yt * d) / d - 1/d;
+      }else{
+        SongAudio.currentTime += mspb/d/1000;
+        t = SongAudio.currentTime*1000;
+      }
     }else{
-      SongAudio.currentTime -= mspb/d/1000;
-      t = SongAudio.currentTime*1000;
+      if(SongAudio.paused && !sp_t){
+        yt = Math.round(yt * d) / d + 1/d;
+      }else{
+        SongAudio.currentTime -= mspb/d/1000;
+        t = SongAudio.currentTime*1000;
+      }
     }
   }
 }
