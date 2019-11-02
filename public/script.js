@@ -1,3 +1,5 @@
+// payloads https://drive.google.com/open?id=1BQy025dJHiwYGA-YEaduG7mjwIfmWAta
+
 let y = 0;      // Y Pos
 let z = .5;   // ZOOM
 let zR =32;     // ZOOM RECIPROCAL
@@ -101,20 +103,25 @@ Column.prototype.drawNotes = function() {
     if(sel){
       if(sN[2]){
         if(mouseIsPressed){
-          translate(mouseX - mpx, (mpMS-mouseMS) * z);
+          if(!sN[3]) translate(mouseX - mpx, (mpMS-mouseMS) * z);
           tint(255, 150);
         }else if(mr == 1 && mouseX!==mpx && mouseY!==mpy){ // when selected note gets released (assuming it got dragged)
           const t = (Math[SNAPPING_MODE](( (mouseMS-mpMS+N.t-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
-          N._t += t - N.t;
-          N.t = t;
-          if(!this.mouseOver()){ // shifting column of note
-            for(let c = 0; c < C.length; c ++){
-              if(C[c].mouseOver()){
-                if(C[c].type != this.type) break; // column type (note/TP) mismatch
-                C[c].notes.push(N);
-                C[c].notes.sort((a,b) => a.t-b.t);
-                this.notes.splice(j, 1);
-                break;
+
+          if(N.ln && sN[3]){
+            N._t = Math.max(N.t, N._t-N.t+t);
+          }else{
+            N._t += t - N.t;
+            N.t = t;
+            if(!this.mouseOver()){ // shifting column of note
+              for(let c = 0; c < C.length; c ++){
+                if(C[c].mouseOver()){
+                  if(C[c].type != this.type) break; // column type (note/TP) mismatch
+                  C[c].notes.push(N);
+                  C[c].notes.sort((a,b) => a.t-b.t);
+                  this.notes.splice(j, 1);
+                  break;
+                }
               }
             }
           }
@@ -156,14 +163,20 @@ Column.prototype.drawNotes = function() {
       text(N.i ? (N.bpm.toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), N.i ? LB_C-5 : RB_C+5, (TP[tp] == N) ? Math.min(YRP, yo) : Math.min(YRP, yo + 20*(tp-TP.indexOf(N))));
     }else{
       if(N.ln){
-        const YRP_E = yo - (N._t - t + yt*mspb) * z;
+        const YRP_E = (sel && sN[3]) ? mouseY : (yo - (N._t - t + yt*mspb) * z);
         if(YRP_E > height+100) break;
         const YRP_C = (YRP+YRP_E)/2 - this.thd2; // yrender pos center
 
-        if(this.mouseOver() && mouseY < YRP && mouseY > YRP_E){
-          if(mp == 1) sN = [N, this.id, true];
-          if(mp == 3){ this.notes.splice(j, 1); mp = false; sN = null; continue; }
-          tint(255, 150);
+        if(this.mouseOver()){
+          if(mouseY < YRP && mouseY > YRP_E){
+            if(mp == 1) sN = [N, this.id, true];
+            tint(255, 150);
+          }
+          if(mouseY < YRP_E && mouseY > YRP_E - this.th){
+            if(mp == 1) sN = [N, this.id, true, 1];
+            if(mp == 3){ this.notes.splice(j, 1); mp = false; sN = null; continue; }
+            tint(255, 150);
+          }
         }
 
         const LN_H = YRP - YRP_E - this.th; // long note height
