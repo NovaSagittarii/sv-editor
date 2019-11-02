@@ -20,7 +20,10 @@ let bpm;
 let SNAPPING_MODE = "round";
 let INVERTED_SCROLL = false;
 
-let mp = false, mpx, mpy, mpMS, mr, mouseMS;
+const MODE_SELECT = 0, MODE_PLACE_NOTE = 1, MODE_PLACE_LONG_NOTE = 2;
+let M = MODE_SELECT; // mode
+
+let mp = false, mpx, mpy, mpMS, mr, mrx, mry, mrMS, mouseMS;
 let sN = null;  // selectedNote
 const keys = {};
 
@@ -142,7 +145,7 @@ Column.prototype.drawNotes = function() {
     if(this.type){
       if(sel) sN[3] = false;
       if(this.mouseOver() && Math.abs(mouseY - YRP + this.thd2) < this.thd2){
-        if(mp == 1) sN = [N, this.id, true];
+        if(mp == 1 && M == MODE_SELECT) sN = [N, this.id, true];
         if(mp == 3){ this.notes.splice(j, 1); TP.splice(TP.indexOf(N), 1); mp = false; sN = null; continue; }
         if(sel) sN[3] = true;
         tint(255, 150);
@@ -161,7 +164,7 @@ Column.prototype.drawNotes = function() {
       noStroke();
       textAlign(N.i ? RIGHT : LEFT, CENTER);
       //text(N.i ? (N.bpm.toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), N.i ? LB_C-5 : RB_C+5, YRP);
-      text(N.i ? (N.bpm.toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), N.i ? LB_C-5 : RB_C+5, (TP[tp] == N) ? Math.min(YRP, yo) : Math.min(YRP, yo + 20*(tp-TP.indexOf(N))));
+      text(N.i ? (N.bpm.toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), N.i ? LB_C-5 : RB_C+5, (TP[tp] == N) ? Math.min(YRP, yo) : Math.min(YRP, yo + 20*Math.abs(tp-TP.indexOf(N)))); // 20*Math.abs ensures only it gets Math.min'd when YRP is greater than yo. Allows transition smooth in, but hard snap out.
     }else{
       if(N.ln){
         const YRP_E = (sel && sN[3]) ? mouseY : (yo - (N._t - t + yt*mspb) * z);
@@ -170,11 +173,11 @@ Column.prototype.drawNotes = function() {
 
         if(this.mouseOver()){
           if(mouseY < YRP && mouseY > YRP_E){
-            if(mp == 1) sN = [N, this.id, true];
+            if(mp == 1 && M == MODE_SELECT) sN = [N, this.id, true];
             tint(255, 150);
           }
           if(mouseY < YRP_E && mouseY > YRP_E - this.th){
-            if(mp == 1) sN = [N, this.id, true, 1];
+            if(mp == 1 && M == MODE_SELECT) sN = [N, this.id, true, 1];
             if(mp == 3){ this.notes.splice(j, 1); mp = false; sN = null; continue; }
             tint(255, 150);
           }
@@ -195,7 +198,7 @@ Column.prototype.drawNotes = function() {
         image(lnHead, 0, 0, this.w, this.th);
       }else{
         if(this.mouseOver() && Math.abs(mouseY - YRP + this.thd2) < this.thd2){
-          if(mp == 1) sN = [N, this.id, true];
+          if(mp == 1 && M == MODE_SELECT) sN = [N, this.id, true];
           if(mp == 3){ this.notes.splice(j, 1); mp = false; sN = null; continue; }
           tint(255, 150);
         }
@@ -217,20 +220,28 @@ Column.prototype.checkPlacement = function(){
     text(~~mouseMS, mouseX, mouseY-15);
     //rect(this.x, Math[SNAPPING_MODE]((mouseY-fy) / (mspb*z/d)) * (mspb/d*z) + fy - this.thd2, this.w, this.th);
 
-    if(mp == 1 && sN === undefined){
-      const t = (Math[SNAPPING_MODE](( (mouseMS-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
-      if(this.type){
-        // SV Notes unsupporting for now.
-        const lTP = TP.filter(e => (e.t <= mouseMS)).reverse()[0];
-        const nTP = new TimingPoint(t, lTP.mspb, lTP.m, lTP.ss, lTP.si, lTP.v, false, lTP.k);
-        TP.push(nTP);
-        TP.sort((a,b) => a.t-b.t);
-        this.notes.push(nTP);
-      }else{
-        this.notes.push(new Note(null, null, t, 0));
+    if(sN === undefined){
+      if(M == MODE_PLACE_NOTE && mp == 1){
+        const t = (Math[SNAPPING_MODE](( (mouseMS-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
+        if(this.type){
+          const lTP = TP.filter(e => (e.t <= mouseMS)).reverse()[0];
+          const nTP = new TimingPoint(t, lTP.mspb, lTP.m, lTP.ss, lTP.si, lTP.v, false, lTP.k);
+          TP.push(nTP);
+          TP.sort((a,b) => a.t-b.t);
+          this.notes.push(nTP);
+        }else{
+          this.notes.push(new Note(null, null, t, 0));
+        }
+        this.notes.sort((a,b) => a.t-b.t);
+        mp = false;
       }
-      this.notes.sort((a,b) => a.t-b.t);
-      mp = false;
+      if(M == MODE_PLACE_LONG_NOTE && mr == 1 && !this.type){
+        const t = (Math[SNAPPING_MODE](( (mpMS-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
+        const t_e = (Math[SNAPPING_MODE](( (mouseMS-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
+        this.notes.push(new Note(null, null, t, 0, 0, t_e));
+        this.notes.sort((a,b) => a.t-b.t);
+        mr = false;
+      }
     }
 
     line(mouseX-15, mouseY, mouseX-5, mouseY);
@@ -353,6 +364,9 @@ function mousePressed(event){
 }
 function mouseReleased(event){
   mr = event.button+1;
+  mrx = mouseX;
+  mry = mouseY;
+  mrMS = mouseMS;
 }
 function mouseWheel(event) {
   if(state !== 3) return;
@@ -475,7 +489,7 @@ folder.addEventListener('change', e => {
 
         //                                                               ignoring :extras ***
         const Notes = d.split('\n\n\n')[1].split('\n').slice(1).map(e => e.split(':')[0].split(',').map(n => parseInt(n)));
-        const TimingPoints = d.split('\n\n').filter(e => e.startsWith('[TimingPoints]'))[0].split('\n').slice(1).map(e => e.split(',').map(n => parseFloat(n) || n));
+        const TimingPoints = d.split('\n\n').filter(e => e.startsWith('[TimingPoints]'))[0].split('\n').slice(1).map(e => e.split(',').map(n => parseFloat(n) || parseInt(n)));
         const ColumnWidth = 512/Difficulty.CircleSize;
 
         C = [];
@@ -544,4 +558,5 @@ folder.addEventListener('change', e => {
 
 /*
   Exporting xpos: Math.floor((512/CS)*(0.5+COLUMN))
+  TimingPoints: TP.map(p => `${p.t},${p.mspb * p.i||100},${p.m},${p.ss},${p.si},${p.v},${p.i+0},${p.k+0}`).join('\n')
 */
