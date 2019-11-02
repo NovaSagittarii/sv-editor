@@ -105,28 +105,29 @@ Column.prototype.drawNotes = function() {
         if(mouseIsPressed){
           if(!sN[3]) translate(mouseX - mpx, (mpMS-mouseMS) * z);
           tint(255, 150);
-        }else if(mr == 1 && mouseX!==mpx && mouseY!==mpy){ // when selected note gets released (assuming it got dragged)
-          const t = (Math[SNAPPING_MODE](( (mouseMS-mpMS+N.t-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
-
-          if(N.ln && sN[3]){
-            N._t = Math.max(N.t, N._t-N.t+t);
-          }else{
-            N._t += t - N.t;
-            N.t = t;
-            if(!this.mouseOver()){ // shifting column of note
-              for(let c = 0; c < C.length; c ++){
-                if(C[c].mouseOver()){
-                  if(C[c].type != this.type) break; // column type (note/TP) mismatch
-                  C[c].notes.push(N);
-                  C[c].notes.sort((a,b) => a.t-b.t);
-                  this.notes.splice(j, 1);
-                  break;
-                }
+        }else{
+          sN[2] = false;
+        }
+      }
+      if(mr == 1 && mouseX!==mpx && mouseY!==mpy){ // when selected note gets released (assuming it got dragged)
+        const t = (Math[SNAPPING_MODE](( (mouseMS-mpMS+N.t-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
+        if(N.ln && sN[3]){
+          N._t = Math.max(N.t, N._t-N.t+t);
+          sN[3] = false;
+        }else{
+          N._t += t - N.t;
+          N.t = t;
+          if(!this.mouseOver()){ // shifting column of note
+            for(let c = 0; c < C.length; c ++){
+              if(C[c].mouseOver()){
+                if(C[c].type != this.type) break; // column type (note/TP) mismatch
+                C[c].notes.push(N);
+                C[c].notes.sort((a,b) => a.t-b.t);
+                this.notes.splice(j, 1);
+                break;
               }
             }
           }
-        }else{
-          sN[2] = false;
         }
       }
       if(!N.ln){
@@ -319,14 +320,12 @@ function draw() {
         tp ++;
         updateTPInfo();
       }
-
       fl = Math.round(-yt + (t-to)/mspb)*d - flb;
       ll = Math.round(-yt + (t-to)/mspb)*d + llb;
 
       for(let i = 0; i < C.length; i ++) C[i].draw();
       for(let i = 0; i < C.length; i ++) C[i].drawNotes();
       for(let i = 0; i < C.length; i ++) C[i].checkPlacement();
-
       if(sN == null) sN = undefined;
       strokeWeight(1);
       stroke(LINE_COLOR);
