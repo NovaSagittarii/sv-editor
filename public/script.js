@@ -25,6 +25,7 @@ let M = MODE_SELECT; // mode
 
 let mp = false, mpx, mpy, mpMS, mr, mrx, mry, mrMS, mouseMS;
 let sN = null;  // selectedNote
+let clipboard = [];
 const keys = {};
 
 const COLUMN_FILL = "#202020";
@@ -426,6 +427,29 @@ function keyPressed(){
     case 37: yt = Math.round(yt * d) / d + 1/d; SongAudio.currentTime += mspb/d/1000; break; // RIGHT
     case 38: d = divisors[divisors.indexOf(d)+1] || d; break; // UP
     case 40: d = divisors[divisors.indexOf(d)-1] || d; break; // DOWN
+    case 67: // C opy
+      if(keys[17]){
+        clipboard = C.map(c => (c.x > Math.min(mpx, mrx) && c.x < Math.max(mpx, mrx)) ? c.notes.filter(n => n.t > Math.min(mpMS, mrMS) && n.t < Math.max(mpMS, mrMS)) : []);
+      }
+      break;
+    case 86: // V paste
+      if(keys[17]){
+        const clipboardFirst = Math.min(...clipboard.filter(c => c[0]).map(c => c[0].t)); // assuming no one uses a 65000k map xD
+        const currentTime = t-yt*mspb;
+        const offset = currentTime-clipboardFirst;
+        const clipboard_offset = clipboard.map(c => c.length ? c.map(n => {n = Object.assign({}, n); n.t += offset; n._t += offset; return n}) : []);
+        console.log(clipboard_offset);
+        C.map(c => {
+          const N = clipboard_offset[c.id];
+          c.notes.push(...N);
+          if(c.type){
+            TP.push(...N);
+            TP.sort((a,b) => a.t-b.t);
+          }
+          c.notes.sort((a,b) => a.t-b.t);
+        });
+      }
+      break;
     case 189: // -
       z = 16 / (++ zR);
       break;
