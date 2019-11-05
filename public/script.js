@@ -353,6 +353,12 @@ function draw() {
       text(bpm.toFixed(2) + "bpm", RB_C+100, 430);
       text((TP[tp].i ? 1 : TP[tp].mspb).toFixed(2) + "x", RB_C + 100, 445);
 
+      if(mouseIsPressed && M == MODE_SELECT){
+        let mpy_a = mpy-(yt-mpyt)*mspb*z; // mpy adjusted
+        stroke(255, 50);
+        fill(255, 10);
+        quad(mouseX, mouseY, mouseX, mpy_a, mpx, mpy_a, mpx, mouseY);
+      }
       if(SongAudio && !SongAudio.ended && !SongAudio.paused) t = 1000*SongAudio.currentTime || 0;
       mp = mr = false;
       break;
@@ -362,6 +368,7 @@ function mousePressed(event){
   mp = event.button+1;
   mpx = mouseX;
   mpy = mouseY;
+  mpyt = yt;
   mpMS = mouseMS;
 }
 function mouseReleased(event){
