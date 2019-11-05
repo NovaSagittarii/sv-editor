@@ -226,7 +226,7 @@ Column.prototype.checkPlacement = function(){
         const t = (Math[SNAPPING_MODE](( (mouseMS-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
         if(this.type){
           const lTP = TP.filter(e => (e.t <= mouseMS)).reverse()[0];
-          const nTP = new TimingPoint(t, lTP.mspb, lTP.m, lTP.ss, lTP.si, lTP.v, false, lTP.k);
+          const nTP = new TimingPoint(t, lTP.i ? 1 : lTP.mspb, lTP.m, lTP.ss, lTP.si, lTP.v, false, lTP.k);
           TP.push(nTP);
           TP.sort((a,b) => a.t-b.t);
           this.notes.push(nTP);
@@ -239,7 +239,8 @@ Column.prototype.checkPlacement = function(){
       if(M == MODE_PLACE_LONG_NOTE && mr == 1 && !this.type){
         const t = (Math[SNAPPING_MODE](( (mpMS-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
         const t_e = (Math[SNAPPING_MODE](( (mouseMS-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
-        this.notes.push(new Note(null, null, t, 0, 0, t_e));
+        console.log(t, t_e);
+        this.notes.push(new Note(null, null, t, 128, 0, t_e));
         this.notes.sort((a,b) => a.t-b.t);
         mr = false;
       }
@@ -427,6 +428,19 @@ function keyPressed(){
     case 37: yt = Math.round(yt * d) / d + 1/d; SongAudio.currentTime += mspb/d/1000; break; // RIGHT
     case 38: d = divisors[divisors.indexOf(d)+1] || d; break; // UP
     case 40: d = divisors[divisors.indexOf(d)-1] || d; break; // DOWN
+    case 46: // Del ete
+      C.forEach(c => {
+        if(c.x > Math.min(mpx, mrx) && c.x < Math.max(mpx, mrx)){
+          for(let i = c.notes.length-1; i >= 0; i --){
+            const n = c.notes[i];
+            if(n.t > Math.min(mpMS, mrMS) && n.t < Math.max(mpMS, mrMS)){
+              c.notes.splice(i, 1);
+              if(c.type) TP.splice(TP.indexOf(n), 1);
+            }
+          }
+        }
+      });
+      break;
     case 67: // C opy
       if(keys[17]){
         clipboard = C.map(c => (c.x > Math.min(mpx, mrx) && c.x < Math.max(mpx, mrx)) ? c.notes.filter(n => n.t > Math.min(mpMS, mrMS) && n.t < Math.max(mpMS, mrMS)) : []);
@@ -582,5 +596,5 @@ folder.addEventListener('change', e => {
 
 /*
   Exporting xpos: Math.floor((512/CS)*(0.5+COLUMN))
-  TimingPoints: TP.map(p => `${p.t},${p.mspb * p.i||100},${p.m},${p.ss},${p.si},${p.v},${p.i+0},${p.k+0}`).join('\n')
+  TimingPoints: TP.map(p => `${Math.round(p.t)},${p.i ? p.mspb : -1/p.mspb*100},${p.m},${p.ss},${p.si},${p.v},${p.i+0},${p.k+0}`).join('\n')
 */
