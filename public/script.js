@@ -155,8 +155,8 @@ Column.prototype.drawNotes = function() {
       if(sel && sN[2] && mouseIsPressed) translate(-(mouseX - mpx), 0);
       stroke(N.i ? "#FF0000" : "#00FF00");
       strokeWeight(1);
-      line(LB_C, YRP, RB_C, YRP);
-      if(sel) line(LB_C, YRP+1, RB_C, YRP+1);
+      line(LB_C + (!N.i*15), YRP, RB_C, YRP);
+      if(sel) line(LB_C + (!N.i*15), YRP+1, RB_C, YRP+1);
       /*stroke(255, 100);
       fill(0);
       textAlign(CENTER, BOTTOM);
@@ -165,7 +165,7 @@ Column.prototype.drawNotes = function() {
       noStroke();
       textAlign(N.i ? RIGHT : LEFT, CENTER);
       //text(N.i ? (N.bpm.toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), N.i ? LB_C-5 : RB_C+5, YRP);
-      text(N.i ? (N.bpm.toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), N.i ? LB_C-5 : RB_C+5, (TP[tp] == N) ? Math.min(YRP, yo) : Math.min(YRP, yo + 20*Math.abs(tp-TP.indexOf(N)))); // 20*Math.abs ensures only it gets Math.min'd when YRP is greater than yo. Allows transition smooth in, but hard snap out.
+      text(N.i ? (N.bpm.toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), N.i ? LB_C-5 : RB_C+5, SongAudio.paused ? YRP : (TP[tp] == N) ? Math.min(YRP, yo) : Math.min(YRP, yo + 20*Math.abs(tp-TP.indexOf(N)))); // 20*Math.abs ensures only it gets Math.min'd when YRP is greater than yo. Allows transition smooth in, but hard snap out.
     }else{
       if(N.ln){
         const YRP_E = (sel && sN[3]) ? mouseY : (yo - (N._t - t + yt*mspb) * z);
@@ -325,11 +325,11 @@ function draw() {
     case 3:
       background(70);
       mouseMS = (yo - mouseY)/z - yt*mspb + t;
-      if(tp && t < TP[tp].t){
+      while(tp && t < TP[tp].t){
         tp --;
         updateTPInfo();
       }
-      if(tp+1 < TP.length && t >= TP[tp+1].t){
+      while(tp+1 < TP.length && t >= TP[tp+1].t){
         tp ++;
         updateTPInfo();
       }
