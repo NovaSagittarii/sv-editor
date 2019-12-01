@@ -29,18 +29,38 @@ let clipboard = [];
 const keys = {};
 
 const COLUMN_FILL = "#202020";
-const DSTROKE = ["#FFFFFF", "#FF0000", "#4444FF", "#CCCC00", "#777777", "#C800C8", "#8C008C", "#777777"];
-//               1/1        1/2        1/4        1/8        1/16       1/3        1/6        1/12
+const DSTROKE = ["#FFF", "#F00", "#44F", "#CC0", "#777", "#C800C8", "#8C008C", "#777", "#0F0", "#0D0", "#FAA", "#0FF"];
+//               1/1     1/2     1/4     1/8     1/16    1/3        1/6        1/12    1/5     2/5     1/10    1/20
+// RuleBlazing made green/pink/cyan 5/10/20 theme xD
+
+// "#940", "#B60", "#C80", "#FB0"];
+// 1/5     2/5     1/10    1/20      brown "muddy" 5/10/20 theme
+
 const LINE_COLOR = DSTROKE[0];
 const colors = {
-  "1": [DSTROKE[0]],
-  "2": [DSTROKE[0],DSTROKE[1]],
-  "3": [DSTROKE[0],DSTROKE[5],DSTROKE[5]],
-  "4": [DSTROKE[0],DSTROKE[2],DSTROKE[1],DSTROKE[2]],
-  "6": [DSTROKE[0],DSTROKE[6],DSTROKE[5],DSTROKE[1],DSTROKE[6],DSTROKE[5]],
-  "8": [DSTROKE[0],DSTROKE[3],DSTROKE[2],DSTROKE[3],DSTROKE[1],DSTROKE[3],DSTROKE[2],DSTROKE[3]],
-  "12": [DSTROKE[0],DSTROKE[7],DSTROKE[6],DSTROKE[7],DSTROKE[5],DSTROKE[7],DSTROKE[1],DSTROKE[7],DSTROKE[6],DSTROKE[7],DSTROKE[5],DSTROKE[7]],
-  "16": [DSTROKE[0],DSTROKE[4],DSTROKE[3],DSTROKE[4],DSTROKE[2],DSTROKE[4],DSTROKE[3],DSTROKE[4],DSTROKE[1],DSTROKE[4],DSTROKE[3],DSTROKE[4],DSTROKE[2],DSTROKE[4],DSTROKE[3],DSTROKE[4]],
+  "1": [0],
+  "2": [0,1],
+  "3": [0,5,5],
+  "4": [0,2,1,2],
+  "5": [0,8,9,8,9],
+  "6": [0,6,5,1,6,5],
+  "8": [0,3,2,3,1,3,2,3],
+  "10": [0,10,8,10,9,10,8,10,9,10],
+  "12": [0,7,6,7,5,7,1,7,6,7,5],
+  "16": [0,4,3,4,2,4,3,4,1,4,3,4,2,4,3,4],
+  "20": [0,11,10,11,8,11,10,11,9,11,10,11,8,11,10,11,9,11,10,11],
+};
+Object.keys(colors).forEach(k => colors[k] = colors[k].map(e => DSTROKE[e]));
+const ColumnNote = {
+  "1": [0],
+  "2": [0, 0],
+  "3": [0, 1, 0],
+  "4": [0, 1, 1, 0],
+  "5": [0, 1, 2, 1, 0],
+  "6": [0, 1, 0, 0, 1, 0],
+  "7": [0, 1, 0, 2, 0, 1, 0],
+  "8": [0, 1, 1, 0, 0, 1, 1, 0],
+  "9": [0, 1, 1, 0, 2, 0, 1, 1, 0]
 };
 const divisors = Object.keys(colors).map(e => parseInt(e));
 const TimingPoint = function(to, mspb, m, ss, si, v, i, k){
@@ -68,9 +88,14 @@ const Column = function(x, w, t){
   this.LB = x + w/2;
   this.type = t;
   this.notes = [];
-  this.th = Math.floor(tile.height * (w / tile.width)); // tile height
-  this.thd2 = this.th/2;
   this.id = C.length;
+  this.th = 0; // tile height
+  this.thd2 = 0;
+};
+Column.prototype.calculateTileHeight = function(){
+  const Tile = this.type ? svTile : tile[ColumnNote[C.length-3][this.id]];
+  this.th = Math.floor(Tile.height * (this.w / Tile.width));
+  this.thd2 = this.th/2;
 };
 Column.prototype.mouseOver = function(){
   return Math.abs(mouseX - this.x) < this.w2;
@@ -185,8 +210,8 @@ Column.prototype.drawNotes = function() {
         }
 
         const LN_H = YRP - YRP_E - this.th; // long note height
-        image(lnBody, this.x, YRP_C, this.w, LN_H);
-        image(lnHead, this.x, YRP - this.thd2, this.w, this.th);
+        image(lnBody[ColumnNote[C.length-3][this.id]], this.x, YRP_C, this.w, LN_H);
+        image(lnHead[ColumnNote[C.length-3][this.id]], this.x, YRP - this.thd2, this.w, this.th);
 
         if(sel){
           fill(255, 50);
@@ -196,14 +221,14 @@ Column.prototype.drawNotes = function() {
         }
         translate(this.x, YRP_E - this.thd2);
         scale(1, -1);
-        image(lnHead, 0, 0, this.w, this.th);
+        image(lnHead[ColumnNote[C.length-3][this.id]], 0, 0, this.w, this.th);
       }else{
         if(this.mouseOver() && Math.abs(mouseY - YRP + this.thd2) < this.thd2){
           if(mp == 1 && M == MODE_SELECT) sN = [N, this.id, true];
           if(mp == 3){ this.notes.splice(j, 1); mp = false; sN = null; continue; }
           tint(255, 150);
         }
-        image(tile, this.x, YRP - this.thd2, this.w, this.th);
+        image(tile[ColumnNote[C.length-3][this.id]], this.x, YRP - this.thd2, this.w, this.th);
       }
     }
     pop();
@@ -277,12 +302,11 @@ function updateTPInfo(){
     updateLineBuffers();
   }
 }
-
 function preload(){
-  tile = loadImage('https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-note2.png?v=1570597631148'); //loadImage('/assets/mania-note2.png');
+  tile = [loadImage('https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-note1.png?v=1575240010874'), loadImage('https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-note2.png?v=1570597631148'), loadImage('https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-noteS.png?v=1575244041951')]; //loadImage('/assets/mania-note2.png');
   svTile = loadImage('https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fsv-note.png?v=1570675367228');
-  lnHead = loadImage('https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-note2H.png?v=1570675914438');
-  lnBody = loadImage('https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-note2L.png?v=1570675925075');
+  lnHead = [loadImage('https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-note1H.png?v=1575240017358'), loadImage('https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-note2H.png?v=1570675914438'), loadImage('https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-noteSH.png?v=1575244053926')];
+  lnBody = [loadImage('https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-note1L.png?v=1575240026387'), loadImage('https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-note2L.png?v=1570675925075'), loadImage('https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-noteSL.png?v=1575244059699')];
 }
 function setup() {
   createCanvas(windowWidth, windowHeight);
@@ -385,7 +409,7 @@ function mouseWheel(event) {
   }else if(keys[17]){
     const temp_d = d;
     d = (event.delta > 0) ? d>>1 : d<<1;
-    if(d < 1 || d > 16) d = temp_d; // REVERT !!
+    if(!colors[d]) d = temp_d; // REVERT !!
     updateLineBuffers();
     return false;
   }else{
@@ -420,6 +444,7 @@ function mouseWheel(event) {
 function keyPressed(){
   if(state !== 3) return;
   keys[keyCode] = true;
+  const temp_d = d;
   switch(keyCode){
     case 32:
       if(SongAudio.paused){
@@ -478,7 +503,7 @@ function keyPressed(){
       z = 16 / (-- zR);
   }
   updateLineBuffers();
-  d = constrain(d, 1, 16);
+  if(!colors[d]) d = temp_d; // REVERT !!
   yc = -yt%(1/d)*d;
   return false;
 };
@@ -542,6 +567,7 @@ folder.addEventListener('change', e => {
         // Add the columns (which notes will be added to)
         for(let i = 0; i < Difficulty.CircleSize; i ++) C.push(new Column(275+i*70, 70, 0));
         for(let i = 0; i < 3; i ++) C.push(new Column(345+(i+Difficulty.CircleSize)*70, 70, 1));
+        C.map(e => e.calculateTileHeight());
         calculateBoundaries();
 
         let TPC = 0;
