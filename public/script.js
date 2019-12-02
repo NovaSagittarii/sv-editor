@@ -176,7 +176,14 @@ Column.prototype.drawNotes = function() {
       if(sel) sN[3] = false;
       if(this.mouseOver() && Math.abs(mouseY - YRP + this.thd2) < this.thd2){
         if(mp == 1 && M == MODE_SELECT) sN = [N, this.id, true];
-        if(mp == 3){ this.notes.splice(j, 1); TP.splice(TP.indexOf(N), 1); mp = false; sN = null; continue; }
+        if(mp == 3){
+          this.notes.splice(j, 1);
+          if(TP.indexOf(N) <= tp) tp --;
+          TP.splice(TP.indexOf(N), 1);
+          mp = false;
+          sN = null;
+          continue;
+        }
         if(sel) sN[3] = true;
         tint(255, 150);
       }
@@ -220,7 +227,7 @@ Column.prototype.drawNotes = function() {
         if(sel){
           fill(255, 150);
           text(Math.round(N.t), this.x, YRP + this.thd2);
-          text(Math.round(N._t), this.x, YRP_C - this.th*2);
+          text(Math.round(N._t), this.x, YRP_E - this.th*1.5);
           fill(255, 50);
           stroke(255, 100);
           strokeWeight(2);
@@ -403,7 +410,7 @@ function draw() {
       }
       pop();
 
-      if(mouseIsPressed && M == MODE_SELECT){
+      if(!sN && mouseIsPressed){
         let mpy_a = mpy-(yt-mpyt)*mspb*z; // mpy adjusted
         stroke(255, 50);
         fill(255, 10);
