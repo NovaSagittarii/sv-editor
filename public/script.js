@@ -162,6 +162,8 @@ Column.prototype.drawNotes = function() {
         }
       }
       if(!N.ln){
+        fill(255, 150);
+        text(Math.round(N.t), this.x, YRP - this.th*1.5);
         noFill();
         stroke(255, 100);
         rect(this.x, YRP - this.thd2, this.w + 6, this.th + 6);
@@ -216,6 +218,9 @@ Column.prototype.drawNotes = function() {
         image(lnHead[ColumnNote[C.length-3][this.id]], this.x, YRP - this.thd2, this.w, this.th);
 
         if(sel){
+          fill(255, 150);
+          text(Math.round(N.t), this.x, YRP + this.thd2);
+          text(Math.round(N._t), this.x, YRP_C - this.th*2);
           fill(255, 50);
           stroke(255, 100);
           strokeWeight(2);
@@ -434,6 +439,10 @@ function mouseWheel(event) {
     updateLineBuffers();
     return false;
   }else if(keys[18]){
+    if(sN){
+      sN[0].t += ((event.delta < 0 == INVERTED_SCROLL) ? 1 : -1) * (keys[16] ? 10 : 1);
+      sN[0]._t += ((event.delta < 0 == INVERTED_SCROLL) ? 1 : -1) * (keys[16] ? 10 : 1);
+    }
     return false;
   }else{
     if(!SongAudio.paused && !sp_t){
