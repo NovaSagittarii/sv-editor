@@ -20,6 +20,7 @@ let bpm;
 let SNAPPING_MODE = "round";
 let INVERTED_SCROLL = false;
 
+const MODE_NAMES = ["SELECT", "NOTE", "LNOTE"];
 const MODE_SELECT = 0, MODE_PLACE_NOTE = 1, MODE_PLACE_LONG_NOTE = 2;
 let M = MODE_SELECT; // mode
 
@@ -373,10 +374,29 @@ function draw() {
       fill(255, 200);
       rect(ZERO_CP, yo-(-t*d+(yt*d)*mspb)/d*z, ZERO_W, 3);
       textSize(12);
+      //text(frameRate().toFixed(1)+"FPS", RB_C+100, 355);
+      text("D=1/"+d, RB_C+100, 385);
       text("Z="+zR, RB_C+100, 400);
       //text(frameRate().toFixed(1) + "fps", RB_C+100, 415);
       text(bpm.toFixed(2) + "bpm", RB_C+100, 430);
       text((TP[tp].i ? 1 : TP[tp].mspb).toFixed(2) + "x", RB_C + 100, 445);
+
+      push();
+      textSize(24);
+      textAlign(RIGHT, CENTER)
+      for(let i = 0; i <= 2; i ++){
+        push();
+        translate(LB_C/2-100 + 25*(M==i), yo-100 - (2-i)*50);
+        fill(255, 100 + 75*(M==i));
+        rect(0, 0, LB_C, 40, 5);
+        fill(0, 255);
+        text(MODE_NAMES[i], 100, 0);
+        pop();
+        if(mp && mouseX < LB_C-75 && Math.abs(yo-100 - (2-i)*50 - mouseY) < 20){
+          M = i;
+        }
+      }
+      pop();
 
       if(mouseIsPressed && M == MODE_SELECT){
         let mpy_a = mpy-(yt-mpyt)*mspb*z; // mpy adjusted
