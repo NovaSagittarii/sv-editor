@@ -413,6 +413,8 @@ function mouseWheel(event) {
     if(!colors[d]) d = temp_d; // REVERT !!
     updateLineBuffers();
     return false;
+  }else if(keys[18]){
+    return false;
   }else{
     if(!SongAudio.paused && !sp_t){
       SongAudio.pause();
@@ -425,18 +427,19 @@ function mouseWheel(event) {
         SongAudio.play();
       }, 150);
     }
+    const _d = keys[16] ? 1 : d;
     if(event.delta < 0 == INVERTED_SCROLL){
       if(SongAudio.paused && !sp_t){
-        yt = Math.ceil(yt * d) / d - 1/d;
+        yt = Math.ceil(yt * _d) / _d - 1/_d;
       }else{
-        SongAudio.currentTime += mspb/d/1000;
+        SongAudio.currentTime += mspb/_d/1000;
         t = SongAudio.currentTime*1000;
       }
     }else{
       if(SongAudio.paused && !sp_t){
-        yt = Math.round(yt * d) / d + 1/d;
+        yt = Math.round(yt * _d) / _d + 1/_d;
       }else{
-        SongAudio.currentTime -= mspb/d/1000;
+        SongAudio.currentTime -= mspb/_d/1000;
         t = SongAudio.currentTime*1000;
       }
     }
