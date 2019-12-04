@@ -107,7 +107,7 @@ Column.prototype.draw = function() {
   stroke(LINE_COLOR);
   strokeWeight(1);
   rect(this.x, 300, this.w, height*2);
-  for(let j = fl; j < ll; j ++){
+  for(let j = fl; j < Math.min(fl+200/d, ll); j ++){
     const YRP = yo-((to-t)*d+(j+yt*d)*mspb)/d*z; // Y RENDER POSITION
     if(YRP > height) continue;
     if(YRP <= 0){
@@ -392,6 +392,7 @@ function draw() {
       //text(frameRate().toFixed(1) + "fps", RB_C+100, 415);
       text(bpm.toFixed(2) + "bpm", RB_C+100, 430);
       text((TP[tp].i ? 1 : TP[tp].mspb).toFixed(2) + "x", RB_C + 100, 445);
+      text("tpid="+tp, RB_C+100, 460);
 
       push();
       textSize(24);
