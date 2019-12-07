@@ -399,19 +399,7 @@ function draw() {
 
       push();
       textSize(24);
-      textAlign(RIGHT, CENTER)
-      for(let i = 0; i <= 2; i ++){
-        push();
-        translate(LB_C/2-100 + 25*(M==i), yo-100 - (2-i)*50);
-        fill(255, 100 + 75*(M==i));
-        rect(0, 0, LB_C, 40, 5);
-        fill(0, 255);
-        text(MODE_NAMES[i], 100, 0);
-        pop();
-        if(mp && mouseX < LB_C-75 && Math.abs(yo-100 - (2-i)*50 - mouseY) < 20){
-          M = i;
-        }
-      }
+      textAlign(RIGHT, CENTER);
       pop();
 
       if(M == MODE_SELECT && !sN && mouseIsPressed){
@@ -673,6 +661,15 @@ folder.addEventListener('change', e => {
     folderContents.append(div);
   };
 });
+
+/* sidebar menu mode js */
+const modes = document.getElementById('sidemenu').getElementsByTagName('div');
+function setMode(HTMLObject){
+  for(let i = 0; i < modes.length; i ++) modes[i].className = "";
+  HTMLObject.className = "selected";
+  M = parseInt(HTMLObject.getAttribute('m'));
+}
+for(let i = 0; i < modes.length; i ++) modes[i].addEventListener('click', HTMLObject => setMode(HTMLObject.srcElement))
 
 /*
   Exporting xpos: Math.floor((512/CS)*(0.5+COLUMN))

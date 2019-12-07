@@ -11,6 +11,7 @@ h1 {
   color: #373fff;
 }
 
+/* uploadFolder things */
 .uploadFolder {
   background: #ddd;
   padding: 1em;
@@ -60,9 +61,51 @@ h1 {
 .valid { background: #dfd; }
 .invalid { background: #fdf; }
 
+/* SongAudio mp3 display at bottom */
 #SongAudio {
   display: block !important;
   position: absolute;
   width: 100%;
   bottom: 0;
+}
+
+/* SideMenu */
+#sidemenu {
+  position: absolute;
+  width: 215px;
+  bottom: 225px;
+  opacity: 0.8;
+  transform: translateX(-100px);
+  transition: all 0.5s cubic-bezier(0.5, 0, 0, 1);
+}
+#sidemenu:hover {
+  opacity: 0.9;
+  transform: translateX(-85px);
+}
+#sidemenu > div {
+  margin: 5px 0 5px 0;
+  padding: 10px 10px 10px 0;
+  border: white 2px outset;
+  border-radius: 5px;
+  width: 100%;
+  font-size: 28px;
+  text-align: right;
+
+  opacity: 0.4;
+  background: white;
+  transform: translateX(-5%) scaleX(0.8);
+  transition: all 0.5s cubic-bezier(0.5, 0, 0, 1), border 1ms;
+}
+#sidemenu > .selected {
+  border: white 2px inset;
+  /* font-size: 30px; */
+
+  opacity: 1.0 !important;
+  background: rgba(255, 255, 255, 0.7);
+  transform: translateX(0) scaleX(1);
+}
+#sidemenu > div:hover {
+  opacity: 0.6;
+  background: rgba(240, 245, 255, 0.67);
+  transform: translateX(0) scaleX(1);
 }
