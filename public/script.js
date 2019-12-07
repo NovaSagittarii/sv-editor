@@ -19,6 +19,7 @@ let bpm;
 
 let SNAPPING_MODE = "round";
 let INVERTED_SCROLL = false;
+const ENABLE_PNOTES = true;
 
 const MODE_NAMES = ["SELECT", "NOTE", "LNOTE"];
 const MODE_SELECT = 0, MODE_PLACE_NOTE = 1, MODE_PLACE_LONG_NOTE = 2;
@@ -65,6 +66,7 @@ const ColumnNote = {
   "9": [0, 1, 1, 0, 2, 0, 1, 1, 0]
 };
 const divisors = Object.keys(colors).map(e => parseInt(e));
+const snap = (ms) => (Math[SNAPPING_MODE](( (ms-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
 const TimingPoint = function(to, mspb, m, ss, si, v, i, k){
   this.t = to;
   this.mspb = mspb > 0 ? mspb : -100/mspb;
@@ -141,13 +143,12 @@ Column.prototype.drawNotes = function() {
         }
       }
       if(mr == 1 && mouseX!==mpx && mouseY!==mpy){ // when selected note gets released (assuming it got dragged)
-        const t = (Math[SNAPPING_MODE](( (mouseMS-mpMS+N.t-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
         if(N.ln && sN[3]){
-          N._t = Math.max(N.t, N._t-N.t+t);
+          N._t = ENABLE_PNOTES ? snap(mouseMS) : Math.max(N.t, snap(mouseMS));
           sN[3] = false;
         }else{
-          N._t += t - N.t;
-          N.t = t;
+          N._t = snap(mouseMS-mpMS + N._t + 0.0001);
+          N.t = snap(mouseMS-mpMS + N.t);
           if(!this.mouseOver()){ // shifting column of note
             for(let c = 0; c < C.length; c ++){
               if(C[c].mouseOver()){
