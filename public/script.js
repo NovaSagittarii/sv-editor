@@ -125,9 +125,10 @@ Column.prototype.draw = function() {
 Column.prototype.drawNotes = function() {
   noStroke();
   fill(0);
+  let LXRP, LYRP;
   for(let j = this.notes.length-1; j >= 0; j --){
     const N = this.notes[j];
-    const YRP = yo - (N.t - t + yt*mspb) * z;
+    const YRP = Math.round(yo - (N.t - t + yt*mspb) * z);
     //rect(this.x, YRP-4, this.w, 8);
     if(!N.ln && YRP > height+100) break;
     if(YRP <= 0) continue;
@@ -194,6 +195,19 @@ Column.prototype.drawNotes = function() {
       stroke(N.i ? "#FF0000" : "#00FF00");
       strokeWeight(1);
       line(LB_C + (!N.i*15), YRP, RB_C, YRP);
+      if(!N.i){
+        let XRP = Math.round(RB_C+70 + (N.mspb-1)*15);
+        push();
+        noSmooth();
+        stroke(N.mspb<1 ? 255 : 0, N.mspb<0.7 ? 255-1.4*(0.7-N.mspb)*255 : 255, N.mspb>1?100*N.mspb:0);
+        //ellipse(XRP, YRP, 2, 2);
+        strokeWeight(1);
+        line(XRP, YRP, XRP, LYRP||(YRP-30));
+        line(XRP, LYRP, LXRP, LYRP);
+        pop();
+        LXRP = XRP;
+        LYRP = YRP;
+      }
       if(sel) line(LB_C + (!N.i*15), YRP+1, RB_C, YRP+1);
       /*stroke(255, 100);
       fill(0);
@@ -201,9 +215,9 @@ Column.prototype.drawNotes = function() {
       text(N.i ? (N.bpm.toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), this.x, YRP);*/
       fill(LINE_COLOR);
       noStroke();
-      textAlign(N.i ? RIGHT : LEFT, CENTER);
+      textAlign(LEFT, CENTER);
       //text(N.i ? (N.bpm.toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), N.i ? LB_C-5 : RB_C+5, YRP);
-      text(N.i ? (N.bpm[0].toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), N.i ? LB_C-5 : RB_C+5, SongAudio.paused ? YRP : (TP[tp] == N) ? Math.min(YRP, yo) : Math.min(YRP, yo + 20*Math.abs(tp-TP.indexOf(N)))); // 20*Math.abs ensures only it gets Math.min'd when YRP is greater than yo. Allows transition smooth in, but hard snap out.
+      text(N.i ? (N.bpm[0].toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), N.i ? RB_C+45 : RB_C+5, SongAudio.paused ? YRP : (TP[tp] == N) ? Math.min(YRP, yo) : Math.min(YRP, yo + 20*Math.abs(tp-TP.indexOf(N)))); // 20*Math.abs ensures only it gets Math.min'd when YRP is greater than yo. Allows transition smooth in, but hard snap out.
     }else{
       if(N.ln){
         const YRP_E = (sel && sN[3]) ? mouseY : (yo - (N._t - t + yt*mspb) * z);
@@ -248,7 +262,6 @@ Column.prototype.drawNotes = function() {
       }
     }
     pop();
-    // add different colors later ***
   }
 };
 Column.prototype.checkPlacement = function(){
@@ -325,8 +338,8 @@ function preload(){
   lnBody = [loadImage('https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-note1L.png?v=1575240026387'), loadImage('https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-note2L.png?v=1570675925075'), loadImage('https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-noteSL.png?v=1575244059699')];
 }
 function setup() {
-  createCanvas(windowWidth, windowHeight);
-  background(255, 255, 255);
+  const canvas = createCanvas(windowWidth-225, windowHeight-30);
+  canvas.parent('canvas-wrapper');
   frameRate(240);
   imageMode(CENTER);
   strokeCap(SQUARE);
@@ -335,35 +348,36 @@ function setup() {
   rectMode(CENTER);
 }
 function windowResized() {
-  resizeCanvas(windowWidth, windowHeight);
+  resizeCanvas(windowWidth-225, windowHeight-30);
 }
 function draw() {
   switch(state){
     case 0:
-      background(225);
+      clear();
       fill(255);
       text(".....".substring(0, (frameCount/30)%7), width/2, 200);
       break;
     case 1:
-      background(225);
+      clear();
       fill(255);
       text("Parsing", width/2, 200);
     case 2:
       fill(255);
-      background(225);
+      clear();
       if(SongAudio){
         text(`${SongAudio.currentTime.toFixed(1)} / ${SongAudio.duration.toFixed(1)}`, width/2, 200);
         if(C){
           state = 3;
           SongAudio.pause();
           SongAudio.controls = true;
+          SongAudio.preload = "auto";
           SongAudio.id = "SongAudio";
           document.body.append(SongAudio);
         }
       }
       break;
     case 3:
-      background(70);
+      clear();
       mouseMS = (yo - mouseY)/z - yt*mspb + t;
       while(tp && t < TP[tp].t){
         tp --;
@@ -389,18 +403,24 @@ function draw() {
       rect(ZERO_CP, yo-(-t*d+(yt*d)*mspb)/d*z, ZERO_W, 3);
       textSize(12);
       //text(frameRate().toFixed(1)+"FPS", RB_C+100, 355);
-      text("D=1/"+d, RB_C+100, 385);
+      push();
+      textAlign(RIGHT, CENTER);
+      /*text("D=1/"+d, RB_C+100, 385);
       text("Z="+zR, RB_C+100, 400);
-      //text(frameRate().toFixed(1) + "fps", RB_C+100, 415);
       text(bpm.toFixed(2) + "bpm", RB_C+100, 430);
       if(!TP[tp].i) text((bpm * TP[tp].mspb).toFixed(2) + "bpm [a]", RB_C + 100, 445);
       text((TP[tp].i ? 1 : TP[tp].mspb).toFixed(2) + "x", RB_C + 100, 460);
       text("tpid="+tp, RB_C+100, 475);
+      text("tpmax="+TP.length, RB_C+100, 490);*/
+      text("D :\nZ :\nbpm :\n|\nsv :\ntpid :\ntpmax :", RB_C+85, 490);
+      textAlign(LEFT, CENTER);
+      text(`1/${d}\n${zR}\n${bpm.toFixed(2)} bpm\n${TP[tp].i ? "" : ((bpm * TP[tp].mspb).toFixed(2) + " bpm [a]")}\n${(TP[tp].i ? 1 : TP[tp].mspb).toFixed(2) + "x"}\n${tp}\n${TP.length}`, RB_C+90, 490);
+      pop();
 
-      push();
+      /*push();
       textSize(24);
       textAlign(RIGHT, CENTER);
-      pop();
+      pop();*/
 
       if(M == MODE_SELECT && !sN && mouseIsPressed){
         let mpy_a = mpy-(yt-mpyt)*mspb*z; // mpy adjusted
@@ -553,11 +573,17 @@ const files = [];
 const uploadDiv = document.getElementById('upload');
 const folder = document.getElementById('folder');
 const folderContents = document.getElementById('folderContents');
+const sideMenu = document.getElementById('sidemenu');
+
+sideMenu.style.transform = "translateX(-100%)";
 
 let SongAudio;
 
 function clearHTML(htmlElement){
   while (htmlElement.firstChild) htmlElement.removeChild(htmlElement.firstChild);
+}
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 folder.addEventListener('change', e => {
@@ -589,6 +615,8 @@ folder.addEventListener('change', e => {
         d.split('\n\n').filter(e => e.startsWith('[Difficulty]'))[0].split('\n').slice(1).map(e => e.split(':')).map(e => Difficulty[e[0]] = parseInt(e[1]));
         console.log(Difficulty);
 
+        sideMenu.style.transform = "";
+
         //                                                               ignoring :extras ***
         const Notes = d.split('\n\n\n')[1].split('\n').slice(1).map(e => e.split(':')[0].split(',').map(n => parseInt(n)));
         const TimingPoints = d.split('\n\n').filter(e => e.startsWith('[TimingPoints]'))[0].split('\n').slice(1).map(e => e.split(',').map(n => parseFloat(n) || parseInt(n)));
@@ -597,8 +625,8 @@ folder.addEventListener('change', e => {
         C = [];
         yo = height - 150;
         // Add the columns (which notes will be added to)
-        for(let i = 0; i < Difficulty.CircleSize; i ++) C.push(new Column(275+i*70, 70, 0));
-        for(let i = 0; i < 3; i ++) C.push(new Column(345+(i+Difficulty.CircleSize)*70, 70, 1));
+        for(let i = 0; i < Difficulty.CircleSize; i ++) C.push(new Column(50+i*70, 70, 0));
+        for(let i = 0; i < 3; i ++) C.push(new Column(120+(i+Difficulty.CircleSize)*70, 70, 1));
         C.map(e => e.calculateTileHeight());
         calculateBoundaries();
 
@@ -610,7 +638,7 @@ folder.addEventListener('change', e => {
             nTP.bpm = TP[TP.length-1].bpm;
           }
           TP.push(nTP);
-          C[Difficulty.CircleSize + TPC%3].notes.push(nTP);
+          C[Difficulty.CircleSize/* + TPC%3*/].notes.push(nTP);
           TPC ++;
         });
         Notes.forEach(e => {
@@ -628,6 +656,7 @@ folder.addEventListener('change', e => {
         t = to = TP[0].t;
         updateTPInfo();
 
+        await sleep(500); // allow for transition to happen before the lag (due to parsing) kicks in
         const parse = new FileReader();
         const parseStart = performance.now();
         parse.onload = async e => {
@@ -663,7 +692,7 @@ folder.addEventListener('change', e => {
 });
 
 /* sidebar menu mode js */
-const modes = document.getElementById('sidemenu').getElementsByTagName('div');
+const modes = sideMenu.getElementsByTagName('div');
 function setMode(HTMLObject){
   for(let i = 0; i < modes.length; i ++) modes[i].className = "";
   HTMLObject.className = "selected";
