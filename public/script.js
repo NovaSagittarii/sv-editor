@@ -69,14 +69,15 @@ const divisors = Object.keys(colors).map(e => parseInt(e));
 const snap = (ms) => (Math[SNAPPING_MODE](( (ms-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
 const TimingPoint = function(to, mspb, m, ss, si, v, i, k){
   this.t = to;
-  this.mspb = mspb > 0 ? mspb : -100/mspb;
-  this.bpm = 60000/mspb;
+  this.mspb = mspb > 0 ? mspb : -100/mspb
+  this.bpm = 1;
   this.m = m;    // meter
   this.ss = ss;  // sample set
   this.si = si;  // sample index
   this.v = v|0;  // volume
   this.i = !!parseInt(i);  // inherited ?
   this.k = !!k;  // kiai ?
+  if(this.i) this.bpm = Float64Array.of(60000/mspb);
 };
 const Note = function(x, y, t, type, hs, et){
   this.t = t;
@@ -109,7 +110,7 @@ Column.prototype.draw = function() {
   stroke(LINE_COLOR);
   strokeWeight(1);
   rect(this.x, 300, this.w, height*2);
-  for(let j = fl; j < Math.min(fl+200/d, ll); j ++){
+  for(let j = fl; j < Math.min(fl+200+zR, ll); j ++){
     const YRP = yo-((to-t)*d+(j+yt*d)*mspb)/d*z; // Y RENDER POSITION
     if(YRP > height) continue;
     if(YRP <= 0){
@@ -147,7 +148,7 @@ Column.prototype.drawNotes = function() {
           N._t = ENABLE_PNOTES ? snap(mouseMS) : Math.max(N.t, snap(mouseMS));
           sN[3] = false;
         }else{
-          N._t = snap(mouseMS-mpMS + N._t + 0.0001);
+          N._t = snap(mouseMS-mpMS + N._t + 0.1);
           N.t = snap(mouseMS-mpMS + N.t);
           if(!this.mouseOver()){ // shifting column of note
             for(let c = 0; c < C.length; c ++){
@@ -202,7 +203,7 @@ Column.prototype.drawNotes = function() {
       noStroke();
       textAlign(N.i ? RIGHT : LEFT, CENTER);
       //text(N.i ? (N.bpm.toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), N.i ? LB_C-5 : RB_C+5, YRP);
-      text(N.i ? (N.bpm.toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), N.i ? LB_C-5 : RB_C+5, SongAudio.paused ? YRP : (TP[tp] == N) ? Math.min(YRP, yo) : Math.min(YRP, yo + 20*Math.abs(tp-TP.indexOf(N)))); // 20*Math.abs ensures only it gets Math.min'd when YRP is greater than yo. Allows transition smooth in, but hard snap out.
+      text(N.i ? (N.bpm[0].toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), N.i ? LB_C-5 : RB_C+5, SongAudio.paused ? YRP : (TP[tp] == N) ? Math.min(YRP, yo) : Math.min(YRP, yo + 20*Math.abs(tp-TP.indexOf(N)))); // 20*Math.abs ensures only it gets Math.min'd when YRP is greater than yo. Allows transition smooth in, but hard snap out.
     }else{
       if(N.ln){
         const YRP_E = (sel && sN[3]) ? mouseY : (yo - (N._t - t + yt*mspb) * z);
@@ -311,7 +312,7 @@ function updateLineBuffers(){
 }
 function updateTPInfo(){
   if(TP[tp].i){
-    bpm = TP[tp].bpm;
+    bpm = TP[tp].bpm[0];
     mspb = TP[tp].mspb;
     to = TP[tp].t;
     updateLineBuffers();
@@ -392,8 +393,9 @@ function draw() {
       text("Z="+zR, RB_C+100, 400);
       //text(frameRate().toFixed(1) + "fps", RB_C+100, 415);
       text(bpm.toFixed(2) + "bpm", RB_C+100, 430);
-      text((TP[tp].i ? 1 : TP[tp].mspb).toFixed(2) + "x", RB_C + 100, 445);
-      text("tpid="+tp, RB_C+100, 460);
+      if(!TP[tp].i) text((bpm * TP[tp].mspb).toFixed(2) + "bpm [a]", RB_C + 100, 445);
+      text((TP[tp].i ? 1 : TP[tp].mspb).toFixed(2) + "x", RB_C + 100, 460);
+      text("tpid="+tp, RB_C+100, 475);
 
       push();
       textSize(24);
@@ -412,7 +414,7 @@ function draw() {
       }
       pop();
 
-      if(!sN && mouseIsPressed){
+      if(M == MODE_SELECT && !sN && mouseIsPressed){
         let mpy_a = mpy-(yt-mpyt)*mspb*z; // mpy adjusted
         stroke(255, 50);
         fill(255, 10);
@@ -616,6 +618,9 @@ folder.addEventListener('change', e => {
         TimingPoints.forEach(e => {
           /*Offset, Milliseconds per Beat, Meter, Sample Set, Sample Index, Volume, Inherited, Kiai Mode*/
           const nTP = new TimingPoint(...e);
+          if(!nTP.i){
+            nTP.bpm = TP[TP.length-1].bpm;
+          }
           TP.push(nTP);
           C[Difficulty.CircleSize + TPC%3].notes.push(nTP);
           TPC ++;
@@ -631,7 +636,7 @@ folder.addEventListener('change', e => {
 
         tp = 0;
         mspb = TP[0].mspb;
-        bpm = TP[0].bpm;
+        bpm = TP[0].bpm[0];
         t = to = TP[0].t;
         updateTPInfo();
 
@@ -646,7 +651,7 @@ folder.addEventListener('change', e => {
             console.info(`Finished loading audio file. Took ${Math.floor(performance.now() - parseDone)} ms.`);
             tp = 0;
             mspb = TP[0].mspb;
-            bpm = TP[0].bpm;
+            bpm = TP[0].bpm[0];
             t = to = TP[0].t;
             SongAudio.currentTime = t/1000;
             updateTPInfo();
