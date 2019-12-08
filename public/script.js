@@ -589,6 +589,7 @@ const folderContents = document.getElementById('folderContents');
 const sideMenu = document.getElementById('sidemenu');
 
 sideMenu.style.transform = "translateX(-100%)";
+File.prototype.slice = Blob.prototype.slice;
 
 let SongAudio;
 
@@ -605,10 +606,12 @@ folder.addEventListener('change', e => {
   const ff = FileArray[0]; // first File
   if(ff.name.endsWith('.osz') || ff.name.endsWith('.zip')){
     JSZip.loadAsync(ff).then(zip => {
-      let k = Object.keys(zip.files).length-1;
+      const l = Object.keys(zip.files).length-1;
+      let k = l;
       zip.forEach((relativePath, ZipObject) => {
         ZipObject.async('blob').then(data => {
           FileArray.push(new File([data], ZipObject.name));
+          toggleUploadText.innerHTML = `Reading... ${l-k}/${l} (${((l-k)/l*100).toFixed(2)}%)`
           console.log(`${k}. Read ${ZipObject.name} from ${ff.name}`);
           if(!(k--)) listFiles(FileArray);
         });
@@ -640,8 +643,6 @@ function listFiles(FileArray){
     folderContents.append(div);
   };
 }
-
-File.prototype.slice = Blob.prototype.slice;
 async function parseFile(file){
   uploadDiv.style.marginTop = -uploadDiv.offsetHeight + 'px';
   state = 1;
@@ -726,10 +727,11 @@ async function parseFile(file){
 }
 
 /* toggling the webkitdirectory input */
+const toggleUploadText = document.getElementById('toggleUploadText');
 document.getElementById('toggleUploadFolder').addEventListener('click', () => {
   const T = folder.getAttribute('webkitdirectory') === null;
   folder[T ? 'setAttribute' : 'removeAttribute']('webkitdirectory', '');
-  document.getElementById('toggleUploadText').innerHTML = T ? "Upload <strong>song</strong> folder." : "Upload <strong>.osz</strong> file.";
+  toggleUploadText.innerHTML = T ? "Upload <strong>song</strong> folder." : "Upload <strong>.osz</strong> file.";
 });
 
 /* sidebar menu mode js */
