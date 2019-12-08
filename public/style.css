@@ -14,7 +14,7 @@ h1 {
 
 /* canvas positioning */
 #defaultCanvas0 {
-  position: absolute;
+  position: fixed;
   left: 225px;
 }
 
@@ -71,14 +71,14 @@ h1 {
 /* SongAudio mp3 display at bottom */
 #SongAudio {
   display: block !important;
-  position: absolute;
+  position: fixed;
   width: 100%;
   bottom: 0;
 }
 
 /* SideMenu */
 #sidemenu {
-  position: absolute;
+  position: fixed;
   width: 215px;
   bottom: 225px;
   opacity: 0.8;

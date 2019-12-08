@@ -125,7 +125,7 @@ Column.prototype.draw = function() {
 Column.prototype.drawNotes = function() {
   noStroke();
   fill(0);
-  let LXRP, LYRP;
+  let LXRP, LYRP, LXRP2, LYRP2;
   for(let j = this.notes.length-1; j >= 0; j --){
     const N = this.notes[j];
     const YRP = Math.round(yo - (N.t - t + yt*mspb) * z);
@@ -199,12 +199,19 @@ Column.prototype.drawNotes = function() {
         let XRP = Math.round(RB_C+70 + (N.mspb-1)*15);
         push();
         noSmooth();
-        stroke(N.mspb<1 ? 255 : 0, N.mspb<0.7 ? 255-1.4*(0.7-N.mspb)*255 : 255, N.mspb>1?100*N.mspb:0);
+        stroke((N.mspb<1||N.mspb>=4) ? 255 : 0, N.mspb<0.7 ? 255-1.4*(0.7-N.mspb)*255 : 255, N.mspb>1?100*N.mspb:0);
         //ellipse(XRP, YRP, 2, 2);
         strokeWeight(1);
         line(XRP, YRP, XRP, LYRP||(YRP-30));
-        line(XRP, LYRP, LXRP, LYRP);
+        stroke(255);
+        if(j % 2 && Math.abs(XRP-LXRP) > 1.5){
+          const XPOS = Math.floor((XRP*(YRP-LYRP)+LXRP*(LYRP-LYRP2))/(YRP-LYRP2));
+          drawingContext.setLineDash([2, 2]);
+          line(XPOS, YRP, XPOS, LYRP2);
+        }
         pop();
+        LXRP2 = LXRP;
+        LYRP2 = LYRP;
         LXRP = XRP;
         LYRP = YRP;
       }
@@ -399,9 +406,10 @@ function draw() {
       line(LB_C, yo+1, RB_C, yo+1);
       line(RB_C+55, yo+1, RB_C+205, yo+1);
       strokeWeight(1);
-      line(RB_C+70, yo-4, RB_C+70, yo+7);
-      line(RB_C+55, yo-4, RB_C+55, yo+7);
-      line(RB_C+205, yo-4, RB_C+205, yo+7);
+      line(RB_C+70, yo-3, RB_C+70, yo+6);   // 1.00x
+      line(RB_C+55, yo-3, RB_C+55, yo+6);   // 0.00x
+      line(RB_C+205, yo-4, RB_C+205, yo+7); // 10.00x
+      line(RB_C+115, yo-3, RB_C+115, yo+6); // 4.00x
       noStroke();
       fill(255, 200);
       rect(ZERO_CP, yo-(-t*d+(yt*d)*mspb)/d*z, ZERO_W, 3);
