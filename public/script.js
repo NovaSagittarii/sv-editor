@@ -394,10 +394,14 @@ function draw() {
       for(let i = 0; i < C.length; i ++) C[i].drawNotes();
       for(let i = 0; i < C.length; i ++) C[i].checkPlacement();
       if(sN == null) sN = undefined;
-      strokeWeight(1);
+      strokeWeight(3);
       stroke(LINE_COLOR);
-      line(LB_C, yo-1, RB_C, yo-1);
       line(LB_C, yo+1, RB_C, yo+1);
+      line(RB_C+55, yo+1, RB_C+205, yo+1);
+      strokeWeight(1);
+      line(RB_C+70, yo-4, RB_C+70, yo+7);
+      line(RB_C+55, yo-4, RB_C+55, yo+7);
+      line(RB_C+205, yo-4, RB_C+205, yo+7);
       noStroke();
       fill(255, 200);
       rect(ZERO_CP, yo-(-t*d+(yt*d)*mspb)/d*z, ZERO_W, 3);
