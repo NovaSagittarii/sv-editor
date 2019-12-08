@@ -203,8 +203,9 @@ Column.prototype.drawNotes = function() {
         //ellipse(XRP, YRP, 2, 2);
         strokeWeight(1);
         line(XRP, YRP, XRP, LYRP||(YRP-30));
+        line(XRP, LYRP, LXRP, LYRP);
         stroke(255);
-        if(j % 2 && Math.abs(XRP-LXRP) > 1.5){
+        if(j % 2 && Math.abs(XRP-LXRP) > 15 && Math.abs(XRP-LXRP2) < 8){
           const XPOS = Math.floor((XRP*(YRP-LYRP)+LXRP*(LYRP-LYRP2))/(YRP-LYRP2));
           drawingContext.setLineDash([2, 2]);
           line(XPOS, YRP, XPOS, LYRP2);
@@ -599,9 +600,28 @@ function sleep(ms) {
 }
 
 folder.addEventListener('change', e => {
+  const FileArray = Array.from(e.target.files);
+  console.log(FileArray);
+  const ff = FileArray[0]; // first File
+  if(ff.name.endsWith('.osz') || ff.name.endsWith('.zip')){
+    JSZip.loadAsync(ff).then(zip => {
+      let k = Object.keys(zip.files).length-1;
+      zip.forEach((relativePath, ZipObject) => {
+        ZipObject.async('blob').then(data => {
+          FileArray.push(new File([data], ZipObject.name));
+          console.log(`${k}. Read ${ZipObject.name} from ${ff.name}`);
+          if(!(k--)) listFiles(FileArray);
+        });
+      });
+    });
+  }
+  console.log(FileArray);
+  listFiles(FileArray);
+});
+function listFiles(FileArray){
   files.splice(0);
   clearHTML(folderContents);
-  for (let file of Array.from(e.target.files)) {
+  for (let file of FileArray) {
     files[file.name] = file;
 
     const div = document.createElement('div');
@@ -609,89 +629,7 @@ folder.addEventListener('change', e => {
     div.className = "wrongExtension";
     if(file.name.includes('.osu')){
       const open = document.createElement('button');
-      open.addEventListener('click', async () => {
-        uploadDiv.style.marginTop = -uploadDiv.offsetHeight + 'px';
-        state = 1;
-        const readStart = performance.now();
-        const d = (await new Response(file).text()).replace(/\r/g,''); // purge le CARRIAGE RETURN \r
-        console.info(`Finished reading map file.   Took ${Math.floor(performance.now() - readStart)} ms.`);
-        if(d.split('\n').filter(e => e.startsWith('Mode: '))[0][6] != "3"){
-          state = 0;
-          uploadDiv.style.marginTop = 0;
-          div.className = "invalid";
-          div.removeChild(div.firstChild);
-          alert("Wrong mode");
-          return;
-        }
-        const Difficulty = {};
-        d.split('\n\n').filter(e => e.startsWith('[Difficulty]'))[0].split('\n').slice(1).map(e => e.split(':')).map(e => Difficulty[e[0]] = parseInt(e[1]));
-        console.log(Difficulty);
-
-        sideMenu.style.transform = "";
-
-        //                                                               ignoring :extras ***
-        const Notes = d.split('\n\n\n')[1].split('\n').slice(1).map(e => e.split(':')[0].split(',').map(n => parseInt(n)));
-        const TimingPoints = d.split('\n\n').filter(e => e.startsWith('[TimingPoints]'))[0].split('\n').slice(1).map(e => e.split(',').map(n => parseFloat(n) || parseInt(n)));
-        const ColumnWidth = 512/Difficulty.CircleSize;
-
-        C = [];
-        yo = height - 150;
-        // Add the columns (which notes will be added to)
-        for(let i = 0; i < Difficulty.CircleSize; i ++) C.push(new Column(50+i*70, 70, 0));
-        for(let i = 0; i < 3; i ++) C.push(new Column(120+(i+Difficulty.CircleSize)*70, 70, 1));
-        C.map(e => e.calculateTileHeight());
-        calculateBoundaries();
-
-        let TPC = 0;
-        TimingPoints.forEach(e => {
-          /*Offset, Milliseconds per Beat, Meter, Sample Set, Sample Index, Volume, Inherited, Kiai Mode*/
-          const nTP = new TimingPoint(...e);
-          if(!nTP.i){
-            nTP.bpm = TP[TP.length-1].bpm;
-          }
-          TP.push(nTP);
-          C[Difficulty.CircleSize/* + TPC%3*/].notes.push(nTP);
-          TPC ++;
-        });
-        Notes.forEach(e => {
-          /* x,y,time,type,hitSound,endTime:extras */
-          try {
-            C[Math.floor(e[0] / ColumnWidth)].notes.push(new Note(...e));
-          } catch (error) {
-            console.warn("Invalid note format: ", e);
-          }
-        });
-
-        tp = 0;
-        mspb = TP[0].mspb;
-        bpm = TP[0].bpm[0];
-        t = to = TP[0].t;
-        updateTPInfo();
-
-        await sleep(500); // allow for transition to happen before the lag (due to parsing) kicks in
-        const parse = new FileReader();
-        const parseStart = performance.now();
-        parse.onload = async e => {
-          const parseDone = performance.now();
-          console.info(`Finished parsing audio file. Took ${Math.floor(performance.now() - parseStart)} ms.`);
-
-          SongAudio = new Audio(e.target.result);
-          SongAudio.onloadeddata = () => {
-            console.info(`Finished loading audio file. Took ${Math.floor(performance.now() - parseDone)} ms.`);
-            tp = 0;
-            mspb = TP[0].mspb;
-            bpm = TP[0].bpm[0];
-            t = to = TP[0].t;
-            SongAudio.currentTime = t/1000;
-            updateTPInfo();
-            SongAudio.play();
-            state = 2;
-          };
-        };
-        const audioPATH = d.split('\n').filter(e => e.startsWith('AudioFilename: '))[0].replace('AudioFilename: ', '');
-        console.log("Audio file: " + audioPATH);
-        parse.readAsDataURL(files[audioPATH]);
-      });
+      open.addEventListener('click', () => parseFile(file));
       open.innerText = "Open";
       div.prepend(open);
       div.className = "valid";
@@ -701,6 +639,97 @@ folder.addEventListener('change', e => {
     }
     folderContents.append(div);
   };
+}
+
+File.prototype.slice = Blob.prototype.slice;
+async function parseFile(file){
+  uploadDiv.style.marginTop = -uploadDiv.offsetHeight + 'px';
+  state = 1;
+  const readStart = performance.now();
+  const d = (await new Response(file).text()).replace(/\r/g,''); // purge le CARRIAGE RETURN \r
+  console.info(`Finished reading map file.   Took ${Math.floor(performance.now() - readStart)} ms.`);
+  if(d.split('\n').filter(e => e.startsWith('Mode: '))[0][6] != "3"){
+    state = 0;
+    uploadDiv.style.marginTop = 0;
+    div.className = "invalid";
+    div.removeChild(div.firstChild);
+    alert("Wrong mode");
+    return;
+  }
+  const Difficulty = {};
+  d.split('\n\n').filter(e => e.startsWith('[Difficulty]'))[0].split('\n').slice(1).map(e => e.split(':')).map(e => Difficulty[e[0]] = parseInt(e[1]));
+  console.log(Difficulty);
+
+  sideMenu.style.transform = "";
+
+  //                                                               ignoring :extras ***
+  const Notes = d.split('\n\n\n')[1].split('\n').slice(1).map(e => e.split(':')[0].split(',').map(n => parseInt(n)));
+  const TimingPoints = d.split('\n\n').filter(e => e.startsWith('[TimingPoints]'))[0].split('\n').slice(1).map(e => e.split(',').map(n => parseFloat(n) || parseInt(n)));
+  const ColumnWidth = 512/Difficulty.CircleSize;
+
+  C = [];
+  yo = height - 150;
+  // Add the columns (which notes will be added to)
+  for(let i = 0; i < Difficulty.CircleSize; i ++) C.push(new Column(50+i*70, 70, 0));
+  for(let i = 0; i < 3; i ++) C.push(new Column(120+(i+Difficulty.CircleSize)*70, 70, 1));
+  C.map(e => e.calculateTileHeight());
+  calculateBoundaries();
+
+  let TPC = 0;
+  TimingPoints.forEach(e => {
+    /*Offset, Milliseconds per Beat, Meter, Sample Set, Sample Index, Volume, Inherited, Kiai Mode*/
+    const nTP = new TimingPoint(...e);
+    if(!nTP.i){
+      nTP.bpm = TP[TP.length-1].bpm;
+    }
+    TP.push(nTP);
+    C[Difficulty.CircleSize/* + TPC%3*/].notes.push(nTP);
+    TPC ++;
+  });
+  Notes.forEach(e => {
+    /* x,y,time,type,hitSound,endTime:extras */
+    try {
+      C[Math.floor(e[0] / ColumnWidth)].notes.push(new Note(...e));
+    } catch (error) {
+      console.warn("Invalid note format: ", e);
+    }
+  });
+
+  tp = 0;
+  mspb = TP[0].mspb;
+  bpm = TP[0].bpm[0];
+  t = to = TP[0].t;
+  updateTPInfo();
+
+  await sleep(500); // allow for transition to happen before the lag (due to parsing) kicks in
+  const parse = new FileReader();
+  const parseStart = performance.now();
+  parse.onload = async e => {
+    const parseDone = performance.now();
+    console.info(`Finished parsing audio file. Took ${Math.floor(performance.now() - parseStart)} ms.`);
+    SongAudio = new Audio(e.target.result.replace("data:;base64,", "data:audio/mp3;base64,"));
+    SongAudio.onloadeddata = () => {
+      console.info(`Finished loading audio file. Took ${Math.floor(performance.now() - parseDone)} ms.`);
+      tp = 0;
+      mspb = TP[0].mspb;
+      bpm = TP[0].bpm[0];
+      t = to = TP[0].t;
+      SongAudio.currentTime = t/1000;
+      updateTPInfo();
+      SongAudio.play();
+      state = 2;
+    };
+  };
+  const audioPATH = d.split('\n').filter(e => e.startsWith('AudioFilename: '))[0].replace('AudioFilename: ', '');
+  console.log("Audio file: " + audioPATH);
+  parse.readAsDataURL(files[audioPATH].slice(0));
+}
+
+/* toggling the webkitdirectory input */
+document.getElementById('toggleUploadFolder').addEventListener('click', () => {
+  const T = folder.getAttribute('webkitdirectory') === null;
+  folder[T ? 'setAttribute' : 'removeAttribute']('webkitdirectory', '');
+  document.getElementById('toggleUploadText').innerHTML = T ? "Upload <strong>song</strong> folder." : "Upload <strong>.osz</strong> file.";
 });
 
 /* sidebar menu mode js */
