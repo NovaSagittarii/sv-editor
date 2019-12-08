@@ -4,11 +4,18 @@ body {
   font-family: "Benton Sans", "Helvetica Neue", helvetica, arial, sans-serif;
   margin: 0em;
   overflow: hidden;
+  background: #333;
 }
 
 h1 {
   font-style: italic;
   color: #373fff;
+}
+
+/* canvas positioning */
+#defaultCanvas0 {
+  position: absolute;
+  left: 225px;
 }
 
 /* uploadFolder things */
