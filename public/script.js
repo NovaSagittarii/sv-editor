@@ -587,6 +587,7 @@ const uploadDiv = document.getElementById('upload');
 const folder = document.getElementById('folder');
 const folderContents = document.getElementById('folderContents');
 const sideMenu = document.getElementById('sidemenu');
+const disabled = document.getElementById('disableCover');
 
 sideMenu.style.transform = "translateX(-100%)";
 File.prototype.slice = Blob.prototype.slice;
@@ -605,6 +606,7 @@ folder.addEventListener('change', e => {
   console.log(FileArray);
   const ff = FileArray[0]; // first File
   if(FileArray.length == 1 && (ff.name.endsWith('.osz') || ff.name.endsWith('.zip'))){
+    disabled.style.display = "block";
     JSZip.loadAsync(ff).then(zip => {
       FileArray.splice(0);
       const l = Object.keys(zip.files).length-1;
@@ -615,7 +617,10 @@ folder.addEventListener('change', e => {
           addFile(FileArray[FileArray.length - 1]);
           toggleUploadText.innerHTML = `Reading... ${l-k}/${l} (${((l-k)/l*100).toFixed(2)}%)`
           console.log(`${k}. Read ${ZipObject.name} from ${ff.name}`);
-          if(!(k--)) listFiles(FileArray);
+          if(!(k--)){
+            listFiles(FileArray);
+            disabled.style.display = "none";
+          }
         });
       });
     });
