@@ -29,6 +29,8 @@ h1 {
 #folderContents {
   padding: 1em;
   background: #f1f1f1;
+  overflow-y: scroll;
+  height: 50vh;
 }
 
 #folderContents > div {
