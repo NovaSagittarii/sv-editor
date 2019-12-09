@@ -30,7 +30,7 @@ h1 {
   padding: 1em;
   background: #f1f1f1;
   overflow-y: scroll;
-  height: 50vh;
+  max-height: 91.2vh;
 }
 
 #folderContents > div {

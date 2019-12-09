@@ -604,7 +604,7 @@ folder.addEventListener('change', e => {
   const FileArray = Array.from(e.target.files);
   console.log(FileArray);
   const ff = FileArray[0]; // first File
-  if(ff.name.endsWith('.osz') || ff.name.endsWith('.zip')){
+  if(FileArray.length == 1 && (ff.name.endsWith('.osz') || ff.name.endsWith('.zip'))){
     JSZip.loadAsync(ff).then(zip => {
       FileArray.splice(0);
       const l = Object.keys(zip.files).length-1;
@@ -620,7 +620,6 @@ folder.addEventListener('change', e => {
       });
     });
   }
-  console.log(FileArray);
   listFiles(FileArray);
 });
 function addFile(file){
