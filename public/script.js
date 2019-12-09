@@ -606,11 +606,13 @@ folder.addEventListener('change', e => {
   const ff = FileArray[0]; // first File
   if(ff.name.endsWith('.osz') || ff.name.endsWith('.zip')){
     JSZip.loadAsync(ff).then(zip => {
+      FileArray.splice(0);
       const l = Object.keys(zip.files).length-1;
       let k = l;
       zip.forEach((relativePath, ZipObject) => {
         ZipObject.async('blob').then(data => {
           FileArray.push(new File([data], ZipObject.name));
+          addFile(FileArray[FileArray.length - 1]);
           toggleUploadText.innerHTML = `Reading... ${l-k}/${l} (${((l-k)/l*100).toFixed(2)}%)`
           console.log(`${k}. Read ${ZipObject.name} from ${ff.name}`);
           if(!(k--)) listFiles(FileArray);
@@ -621,26 +623,28 @@ folder.addEventListener('change', e => {
   console.log(FileArray);
   listFiles(FileArray);
 });
+function addFile(file){
+  const div = document.createElement('div');
+  div.innerHTML = `${file.name} <div style="float:right">${(file.size/1024).toFixed(1)}KiB</div>`;
+  div.className = "wrongExtension";
+  if(file.name.includes('.osu')){
+    const open = document.createElement('button');
+    open.addEventListener('click', () => parseFile(file));
+    open.innerText = "Open";
+    div.prepend(open);
+    div.className = "valid";
+    div.addEventListener('click', () => {
+      console.log(file.name);
+    });
+  }
+  folderContents.append(div);
+}
 function listFiles(FileArray){
   files.splice(0);
   clearHTML(folderContents);
   for (let file of FileArray) {
     files[file.name] = file;
-
-    const div = document.createElement('div');
-    div.innerHTML = `${file.name} <div style="float:right">${(file.size/1024).toFixed(1)}KiB</div>`;
-    div.className = "wrongExtension";
-    if(file.name.includes('.osu')){
-      const open = document.createElement('button');
-      open.addEventListener('click', () => parseFile(file));
-      open.innerText = "Open";
-      div.prepend(open);
-      div.className = "valid";
-      div.addEventListener('click', () => {
-        console.log(file.name);
-      });
-    }
-    folderContents.append(div);
+    addFile(file);
   };
 }
 async function parseFile(file){
