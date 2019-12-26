@@ -856,19 +856,30 @@ function setMode(HTMLObject){
 for(let i = 0; i < modes.length; i ++) modes[i].addEventListener('click', HTMLObject => setMode(HTMLObject.srcElement))
 
 const extras = {
-  "TPexp": function(){
-    console.log(TP.map(p => `${Math.round(p.t)},${p.i ? p.mspb : -1/p.mspb*100},${p.m},${p.ss},${p.si},${p.v},${p.i+0},${p.k+0}`).join('\n'));
-    alert("check console");
+  "TPexp": {
+    desc: "Exports all TimingPoint(s) in .osu format",
+    exec: function(){
+      console.log(TP.map(p => `${Math.round(p.t)},${p.i ? p.mspb : -1/p.mspb*100},${p.m},${p.ss},${p.si},${p.v},${p.i+0},${p.k+0}`).join('\n'));
+      alert("check console");
+    }
   },
-  "Nexp": function(){
-    console.log(C.slice(0, C.length-3).map(c => c.notes).reduce((a,b) => a.concat(b)).sort((a,b) => a.t-b.t).map(n => n.export()));
-    alert("check console");
+  "Nexp": {
+    desc: "Exports all Note(s) in .osu format",
+    exec: function(){
+      console.log(C.slice(0, C.length-3).map(c => c.notes).reduce((a,b) => a.concat(b)).sort((a,b) => a.t-b.t).map(n => n.export()));
+      alert("check console");
+    }
   }
 };
 for(let i in extras){
   const div = document.createElement('div');
+  tippy(div, {
+    arrow: false,
+    content: extras[i].desc,
+    placement: 'bottom'
+  });
   div.innerText = i;
-  div.addEventListener('click', extras[i]);
+  div.addEventListener('click', extras[i].exec);
   sideMenu.append(div);
 }
 
