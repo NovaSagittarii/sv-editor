@@ -126,10 +126,10 @@ h1 {
 
   opacity: 1.0 !important;
   background: rgba(255, 255, 255, 0.7);
-  transform: translateX(0) scaleX(1);
+  transform: translateX(0) scaleX(1) !important;
 }
 #sidemenu > div:hover {
   opacity: 0.6;
   background: rgba(240, 245, 255, 0.67);
-  transform: translateX(0) scaleX(1);
+  transform: translateX(0) scaleX(0.8);
 }

@@ -242,7 +242,6 @@ Column.prototype.drawNotes = function() {
       if(!N.i){
         let XRP = Math.round(RB_C+70 + (N.mspb-1)*15);
         push();
-        noSmooth();
         stroke((N.mspb<1||N.mspb>=4) ? 255 : 0, N.mspb<0.7 ? 255-1.4*(0.7-N.mspb)*255 : 255, N.mspb>1?100*N.mspb:0);
         //ellipse(XRP, YRP, 2, 2);
         strokeWeight(1);
@@ -504,7 +503,7 @@ function draw() {
       text("tpmax="+TP.length, RB_C+100, 490);*/
       text("D :\nZ :\nbpm :\n|\nsv :\ntpid :\ntpmax :\nNSl :", RB_C+285, 490);
       textAlign(LEFT, CENTER);
-      text(`1/${d}\n${zR}\n${bpm.toFixed(2)} bpm\n${TP[tp].i ? "" : ((bpm * TP[tp].mspb).toFixed(2) + " bpm [a]")}\n${(TP[tp].i ? 1 : TP[tp].mspb).toFixed(2) + "x"}\n${tp}\n${TP.length}\n${NSl}`, RB_C+290, 490);
+      text(`1/${d}\n${zR}\n${bpm.toFixed(2)} bpm\n${TP[tp].i ? "" : ((bpm * TP[tp].mspb).toFixed(2) + " bpm [a]")}\n${(TP[tp].i ? 1 : TP[tp].mspb).toFixed(2) + "x"}\n${tp}\n${TP.length-1}\n${NSl}`, RB_C+290, 490);
       pop();
 
       /*push();
@@ -632,13 +631,13 @@ function keyPressed(){
         // convert text to objects
         const cb = clipboard.slice(0);
         const clipboardObjects = cb.splice(0, C.length-3).map(c => c.map(n => n = new Note(...(n+":").split(':')[0].split(',').map(e => parseInt(e))))).concat(cb.map(c => c.map(n => n = new TimingPoint(...(n.split(',').map(e => parseFloat(e) || parseInt(e)))))));
-        console.log(clipboardObjects);
+        // console.log(clipboardObjects);
         // continue from there ...
         const clipboardFirst = Math.min(...clipboardObjects.filter(c => c[0]).map(c => c[0].t)); // assuming no one uses a 65000k map xD
         const currentTime = t-yt*mspb;
         const offset = currentTime-clipboardFirst;
         const clipboard_offset = clipboardObjects.map(c => c.length ? c.map(n => {n = Object.assign({}, n); n.t += offset; n._t += offset; return n}) : []);
-        console.log(clipboard_offset);
+        // console.log(clipboard_offset);
         C.map(c => {
           const N = clipboard_offset[c.id];
           c.notes.push(...N);
@@ -855,6 +854,23 @@ function setMode(HTMLObject){
   M = parseInt(HTMLObject.getAttribute('m'));
 }
 for(let i = 0; i < modes.length; i ++) modes[i].addEventListener('click', HTMLObject => setMode(HTMLObject.srcElement))
+
+const extras = {
+  "TPexp": function(){
+    console.log(TP.map(p => `${Math.round(p.t)},${p.i ? p.mspb : -1/p.mspb*100},${p.m},${p.ss},${p.si},${p.v},${p.i+0},${p.k+0}`).join('\n'));
+    alert("check console");
+  },
+  "Nexp": function(){
+    console.log(C.slice(0, C.length-3).map(c => c.notes).reduce((a,b) => a.concat(b)).sort((a,b) => a.t-b.t).map(n => n.export()));
+    alert("check console");
+  }
+};
+for(let i in extras){
+  const div = document.createElement('div');
+  div.innerText = i;
+  div.addEventListener('click', extras[i]);
+  sideMenu.append(div);
+}
 
 /*
   Exporting xpos: Math.floor((512/CS)*(0.5+COLUMN))
