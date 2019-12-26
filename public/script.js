@@ -27,18 +27,22 @@ let M = MODE_SELECT; // mode
 
 let mp = false, mpx, mpy, mpMS, mr, mrx, mry, mrMS, mouseMS;
 let sN = null;  // selectedNote
+let NS = {}; // Note Selection
+let NSl = 0; // Note Selection size (length?)
 let clipboard = [];
+let _nid = 1;
 const keys = {};
 
-const COLUMN_FILL = "#202020";
-const DSTROKE = ["#FFF", "#F00", "#44F", "#CC0", "#777", "#C800C8", "#8C008C", "#777", "#FAA", "#FBB", "#AFF", "#4ED"];
-//               1/1     1/2     1/4     1/8     1/16    1/3        1/6        1/12    1/5     2/5     1/10    1/20
+const COLUMN_FILL = "#000";
+const DSTROKE = ["#FFF", "#F00", "#44F", "#CC0", "#777", "#C800C8", "#8C008C", "#777", "#FAA", "#FBB", "#AFF", "#4ED", "#AAA", "#AAA"];
+//               1/1     1/2     1/4     1/8     1/16    1/3        1/6        1/12    1/5     2/5     1/10    1/20    1/24    1/32
 
 //
 // "#FAA", "#FBB", "#FAF", "#7FF"];  RuleBlazing's pink/purple/cyan 5/10/20 theme xD
 // "#940", "#B60", "#C80", "#FB0"];  brown "muddy" 5/10/20 theme
 // 1/5     2/5     1/10    1/20
 
+const PSTROKE = "#FCC";
 const LINE_COLOR = DSTROKE[0];
 const colors = {
   "1": [0],
@@ -52,7 +56,11 @@ const colors = {
   "12": [0,7,6,7,5,7,1,7,6,7,5,7],
   "16": [0,4,3,4,2,4,3,4,1,4,3,4,2,4,3,4],
   "20": [0,11,10,11,8,11,10,11,9,11,10,11,8,11,10,11,9,11,10,11],
+  "24": [],
+  "32": []
 };
+colors[24].push(...[...colors[12].join(',12,').split(',').map(e => parseInt(e)), 12]);
+colors[32].push(...[...colors[16].join(',13,').split(',').map(e => parseInt(e)), 13]);
 Object.keys(colors).forEach(k => colors[k] = colors[k].map(e => DSTROKE[e]));
 const ColumnNote = {
   "1": [0],
@@ -77,6 +85,7 @@ const TimingPoint = function(to, mspb, m, ss, si, v, i, k){
   this.v = v|0;  // volume
   this.i = !!parseInt(i);  // inherited ?
   this.k = !!k;  // kiai ?
+  this._id = (_nid ++).toString(36);
   if(this.i) this.bpm = Float64Array.of(60000/mspb);
 };
 const Note = function(x, y, t, type, hs, et){
@@ -84,6 +93,7 @@ const Note = function(x, y, t, type, hs, et){
   this.ln = type > 100; // 1 - note, 128 - long_note
   this.hs = hs;
   this._t = et || t;
+  this._id = (_nid ++).toString(36);
 };
 const Column = function(x, w, t){
   this.x = x;
@@ -134,31 +144,41 @@ Column.prototype.drawNotes = function() {
     if(YRP <= 0) continue;
 
     push();
-    const sel = sN && sN[0] === N;
+    const sel = sN && sN[0] === N; // ifSelected determination & drawing things?
+    const withinSelection = NS[N._id] !== undefined;
+    if(sN && !sN[3] && mouseIsPressed && withinSelection) translate(mouseX - mpx, (mpMS-mouseMS) * z);
     if(sel){
       if(sN[2]){
         if(mouseIsPressed){
-          if(!sN[3]) translate(mouseX - mpx, (mpMS-mouseMS) * z);
           tint(255, 150);
         }else{
           sN[2] = false;
         }
       }
       if(mr == 1 && mouseX!==mpx && mouseY!==mpy){ // when selected note gets released (assuming it got dragged)
-        if(N.ln && sN[3]){
+        if(N.ln && sN[3]){ // modify LN-end
           N._t = ENABLE_PNOTES ? snap(mouseMS) : Math.max(N.t, snap(mouseMS));
           sN[3] = false;
-        }else{
-          N._t = snap(mouseMS-mpMS + N._t + 0.1);
-          N.t = snap(mouseMS-mpMS + N.t);
-          if(!this.mouseOver()){ // shifting column of note
-            for(let c = 0; c < C.length; c ++){
-              if(C[c].mouseOver()){
-                if(C[c].type != this.type) break; // column type (note/TP) mismatch
-                C[c].notes.push(N);
-                C[c].notes.sort((a,b) => a.t-b.t);
-                this.notes.splice(j, 1);
-                break;
+        }else{ // shift selection
+          const relativeShift = snap(mouseMS-mpMS + N.t) - N.t;
+          if(NSl > 1){
+            for(let id in NS){
+              NS[id].t += relativeShift;
+              NS[id]._t += relativeShift;
+            }
+            C.map(c => c.notes.sort((a,b) => a.t-b.t));
+          }else{
+            N._t = snap(mouseMS-mpMS + N._t + 1);
+            N.t += relativeShift;
+            if(!this.mouseOver()){ // shifting column of note
+              for(let c = 0; c < C.length; c ++){
+                if(C[c].mouseOver()){
+                  if(C[c].type != this.type) break; // column type (note/TP) mismatch
+                  C[c].notes.push(N);
+                  C[c].notes.sort((a,b) => a.t-b.t);
+                  this.notes.splice(j, 1);
+                  break;
+                }
               }
             }
           }
@@ -178,20 +198,28 @@ Column.prototype.drawNotes = function() {
     if(this.type){
       if(sel) sN[3] = false;
       if(this.mouseOver() && Math.abs(mouseY - YRP + this.thd2) < this.thd2){
-        if(mp == 1 && M == MODE_SELECT) sN = [N, this.id, true];
+        if(mp == 1 && M === MODE_SELECT){
+          sN = [N, this.id, true];
+          if(!NSl || keys[17]){
+            if(!NS[N._id]) NSl ++;
+            NS[N._id] = N;
+          }
+        }
         if(mp == 3){
           this.notes.splice(j, 1);
           if(TP.indexOf(N) <= tp) tp --;
           TP.splice(TP.indexOf(N), 1);
           mp = false;
-          sN = null;
+          sN = null; // deleting notes
+          if(NS[N._id]) NSl --;
+          delete NS[N._id]; // remove from NoteSelection
           continue;
         }
         if(sel) sN[3] = true;
-        tint(255, 150);
       }
-      image(svTile, this.x, YRP - this.thd2, this.w, this.th);
-      if(sel && sN[2] && mouseIsPressed) translate(-(mouseX - mpx), 0);
+      // TODO: use different tiles for different tiles xdd (one-to-one, not one-to-all)
+      image(withinSelection ? wsTile : svTile, this.x, YRP - this.thd2, this.w, this.th);
+      if(withinSelection && mouseIsPressed) translate(-(mouseX - mpx), 0); // "dragging effect"
       stroke(N.i ? "#FF0000" : "#00FF00");
       strokeWeight(1);
       line(LB_C + (!N.i*15), YRP, RB_C, YRP);
@@ -205,7 +233,7 @@ Column.prototype.drawNotes = function() {
         line(XRP, YRP, XRP, LYRP||(YRP-30));
         line(XRP, LYRP, LXRP, LYRP);
         stroke(255);
-        if(j % 2 && Math.abs(XRP-LXRP) > 15 && Math.abs(XRP-LXRP2) < 8){
+        if(j % 2 && Math.abs(XRP-LXRP2) < 5){
           const XPOS = Math.floor((XRP*(YRP-LYRP)+LXRP*(LYRP-LYRP2))/(YRP-LYRP2));
           drawingContext.setLineDash([2, 2]);
           line(XPOS, YRP, XPOS, LYRP2);
@@ -227,26 +255,35 @@ Column.prototype.drawNotes = function() {
       //text(N.i ? (N.bpm.toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), N.i ? LB_C-5 : RB_C+5, YRP);
       text(N.i ? (N.bpm[0].toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), N.i ? RB_C+45 : RB_C+5, SongAudio.paused ? YRP : (TP[tp] == N) ? Math.min(YRP, yo) : Math.min(YRP, yo + 20*Math.abs(tp-TP.indexOf(N)))); // 20*Math.abs ensures only it gets Math.min'd when YRP is greater than yo. Allows transition smooth in, but hard snap out.
     }else{
-      if(N.ln){
+      if(N.ln){ //  adding note to the selection (more accurately- setting the note as the selected note)
         const YRP_E = (sel && sN[3]) ? mouseY : (yo - (N._t - t + yt*mspb) * z);
         if(YRP_E > height+100) break;
         const YRP_C = (YRP+YRP_E)/2 - this.thd2; // yrender pos center
 
         if(this.mouseOver()){
-          if(mouseY < YRP && mouseY > YRP_E){
-            if(mp == 1 && M == MODE_SELECT) sN = [N, this.id, true];
-            tint(255, 150);
-          }
-          if(mouseY < YRP_E && mouseY > YRP_E - this.th){
-            if(mp == 1 && M == MODE_SELECT) sN = [N, this.id, true, 1];
-            if(mp == 3){ this.notes.splice(j, 1); mp = false; sN = null; continue; }
+          if(mouseY < YRP && mouseY > YRP_E - this.th){
+            if(mp == 1 && M === MODE_SELECT){
+              sN = [N, this.id, true, (mouseY < YRP_E)+0]; // sN[3] if the tail is selected
+              if(!NS[N._id]) NSl ++;
+              NS[N._id] = N;
+            }
+            if(mp == 3){
+              if(NS[N._id]) NSl --;
+              delete NS[N._id];
+              this.notes.splice(j, 1);
+              mp = false;
+              sN = null;
+              continue;
+            }
             tint(255, 150);
           }
         }
 
+        // TODO : fix all the [withinSelection ? wsTile : ]
+
         const LN_H = YRP - YRP_E - this.th; // long note height
-        image(lnBody[ColumnNote[C.length-3][this.id]], this.x, YRP_C, this.w, LN_H);
-        image(lnHead[ColumnNote[C.length-3][this.id]], this.x, YRP - this.thd2, this.w, this.th);
+        image(withinSelection ? wsTile : lnBody[ColumnNote[C.length-3][this.id]], this.x, YRP_C, this.w, LN_H);
+        image(withinSelection ? wsTile : lnHead[ColumnNote[C.length-3][this.id]], this.x, YRP - this.thd2, this.w, this.th);
 
         if(sel){
           fill(255, 150);
@@ -259,14 +296,26 @@ Column.prototype.drawNotes = function() {
         }
         translate(this.x, YRP_E - this.thd2);
         scale(1, -1);
-        image(lnHead[ColumnNote[C.length-3][this.id]], 0, 0, this.w, this.th);
+        image(withinSelection ? wsTile : lnHead[ColumnNote[C.length-3][this.id]], 0, 0, this.w, this.th);
       }else{
         if(this.mouseOver() && Math.abs(mouseY - YRP + this.thd2) < this.thd2){
-          if(mp == 1 && M == MODE_SELECT) sN = [N, this.id, true];
-          if(mp == 3){ this.notes.splice(j, 1); mp = false; sN = null; continue; }
+          if(mp == 1 && M === MODE_SELECT){
+            sN = [N, this.id, true];
+            if(!NS[N._id]) NSl ++;
+            NS[N._id] = N;
+          }
+          if(mp == 3){
+            if(NS[N._id]) NSl --;
+            delete NS[N._id];
+            this.notes.splice(j, 1);
+            mp = false;
+            sN = null;
+            continue;
+          }
           tint(255, 150);
         }
-        image(tile[ColumnNote[C.length-3][this.id]], this.x, YRP - this.thd2, this.w, this.th);
+        // TODO: use different tiles for different tiles xdd (one-to-one, not one-to-all)
+        image(withinSelection ? wsTile : tile[ColumnNote[C.length-3][this.id]], this.x, YRP - this.thd2, this.w, this.th);
       }
     }
     pop();
@@ -283,35 +332,38 @@ Column.prototype.checkPlacement = function(){
     text(~~mouseMS, mouseX, mouseY-15);
     //rect(this.x, Math[SNAPPING_MODE]((mouseY-fy) / (mspb*z/d)) * (mspb/d*z) + fy - this.thd2, this.w, this.th);
 
-    if(sN === undefined){
-      if(M == MODE_PLACE_NOTE && mp == 1){
-        const t = (Math[SNAPPING_MODE](( (mouseMS-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
-        if(this.type){
-          const lTP = TP.filter(e => (e.t <= mouseMS)).reverse()[0];
-          const nTP = new TimingPoint(t, lTP.i ? 1 : lTP.mspb, lTP.m, lTP.ss, lTP.si, lTP.v, false, lTP.k);
-          TP.push(nTP);
-          TP.sort((a,b) => a.t-b.t);
-          this.notes.push(nTP);
-        }else{
-          this.notes.push(new Note(null, null, t, 0));
-        }
-        this.notes.sort((a,b) => a.t-b.t);
-        mp = false;
+    if(M === MODE_PLACE_NOTE && mp == 1){
+      const t = (Math[SNAPPING_MODE](( (mouseMS-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
+      if(this.type){
+        const lTP = TP.filter(e => (e.t <= mouseMS)).reverse()[0];
+        const nTP = new TimingPoint(t, lTP.i ? 1 : lTP.mspb, lTP.m, lTP.ss, lTP.si, lTP.v, false, lTP.k);
+        TP.push(nTP);
+        TP.sort((a,b) => a.t-b.t);
+        this.notes.push(nTP);
+      }else{
+        this.notes.push(new Note(null, null, t, 0));
       }
-      if(M == MODE_PLACE_LONG_NOTE && mr == 1 && !this.type){
-        const t = (Math[SNAPPING_MODE](( (mpMS-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
-        const t_e = (Math[SNAPPING_MODE](( (mouseMS-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
-        console.log(t, t_e);
-        this.notes.push(new Note(null, null, t, 128, 0, t_e));
-        this.notes.sort((a,b) => a.t-b.t);
-        mr = false;
-      }
+      this.notes.sort((a,b) => a.t-b.t);
+      mp = false;
+    }
+    if(M === MODE_PLACE_LONG_NOTE && mr == 1 && !this.type){
+      const t = (Math[SNAPPING_MODE](( (mpMS-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
+      const t_e = (Math[SNAPPING_MODE](( (mouseMS-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
+      console.log(t, t_e);
+      this.notes.push(new Note(null, null, t, 128, 0, t_e));
+      this.notes.sort((a,b) => a.t-b.t);
+      mr = false;
     }
 
     line(mouseX-15, mouseY, mouseX-5, mouseY);
     line(mouseX+15, mouseY, mouseX+5, mouseY);
   }else if(mp && sN && sN[1] == this.id){
-    sN = null;
+    sN = null; // clicking on something outside the selection i guess
+  }else if(mp && !sN){
+    if(!keys[17]){ // if CTRL is not held
+      Object.keys(NS).map(k => delete NS[k]); // NSl --
+      NSl = 0;
+    }
   }
 };
 let C, TP = [], tp;
@@ -319,7 +371,7 @@ let state = 0;
 let LB_C, RB_C, ZERO_CP, ZERO_W;
 
 let sp_t; // scroll pause timeout
-let tile, svTile, lnHead, lnBody;
+let tile, svTile, lnHead, lnBody, wsTile;
 
 function calculateBoundaries(){
   LB_C = C[0].x - C[0].w/2 - 15;
@@ -348,6 +400,15 @@ function preload(){
 function setup() {
   const canvas = createCanvas(windowWidth-225, windowHeight-30);
   canvas.parent('canvas-wrapper');
+
+  // render the "withinSelection" image
+  push();
+  clear();
+  tint(255, 100);
+  image(svTile, 0, 0);
+  wsTile = get(0, 0, svTile.width, svTile.height);
+  pop();
+
   frameRate(240);
   imageMode(CENTER);
   strokeCap(SQUARE);
@@ -401,18 +462,18 @@ function draw() {
       for(let i = 0; i < C.length; i ++) C[i].draw();
       for(let i = 0; i < C.length; i ++) C[i].drawNotes();
       for(let i = 0; i < C.length; i ++) C[i].checkPlacement();
-      if(sN == null) sN = undefined;
-      strokeWeight(3);
-      stroke(LINE_COLOR);
-      line(LB_C, yo+1, RB_C, yo+1);
-      line(RB_C+55, yo+1, RB_C+205, yo+1);
+      if(sN == null) sN = undefined; // something about transitions
+      strokeWeight(4);
+      stroke(PSTROKE);
+      line(LB_C, yo+1, RB_C, yo+2);
+      line(RB_C+55, yo+1, RB_C+205, yo+2);
       strokeWeight(1);
       line(RB_C+70, yo-3, RB_C+70, yo+6);   // 1.00x
       line(RB_C+55, yo-3, RB_C+55, yo+6);   // 0.00x
       line(RB_C+205, yo-4, RB_C+205, yo+7); // 10.00x
       line(RB_C+115, yo-3, RB_C+115, yo+6); // 4.00x
-      noStroke();
-      fill(255, 200);
+      noStroke(255, 100);
+      fill(255, 100);
       rect(ZERO_CP, yo-(-t*d+(yt*d)*mspb)/d*z, ZERO_W, 3);
       textSize(12);
       //text(frameRate().toFixed(1)+"FPS", RB_C+100, 355);
@@ -425,9 +486,9 @@ function draw() {
       text((TP[tp].i ? 1 : TP[tp].mspb).toFixed(2) + "x", RB_C + 100, 460);
       text("tpid="+tp, RB_C+100, 475);
       text("tpmax="+TP.length, RB_C+100, 490);*/
-      text("D :\nZ :\nbpm :\n|\nsv :\ntpid :\ntpmax :", RB_C+85, 490);
+      text("D :\nZ :\nbpm :\n|\nsv :\ntpid :\ntpmax :\nNSl :", RB_C+285, 490);
       textAlign(LEFT, CENTER);
-      text(`1/${d}\n${zR}\n${bpm.toFixed(2)} bpm\n${TP[tp].i ? "" : ((bpm * TP[tp].mspb).toFixed(2) + " bpm [a]")}\n${(TP[tp].i ? 1 : TP[tp].mspb).toFixed(2) + "x"}\n${tp}\n${TP.length}`, RB_C+90, 490);
+      text(`1/${d}\n${zR}\n${bpm.toFixed(2)} bpm\n${TP[tp].i ? "" : ((bpm * TP[tp].mspb).toFixed(2) + " bpm [a]")}\n${(TP[tp].i ? 1 : TP[tp].mspb).toFixed(2) + "x"}\n${tp}\n${TP.length}\n${NSl}`, RB_C+290, 490);
       pop();
 
       /*push();
@@ -435,7 +496,7 @@ function draw() {
       textAlign(RIGHT, CENTER);
       pop();*/
 
-      if(M == MODE_SELECT && !sN && mouseIsPressed){
+      if(M === MODE_SELECT && !sN && mouseIsPressed){ // draw box around immediately focused note
         let mpy_a = mpy-(yt-mpyt)*mspb*z; // mpy adjusted
         stroke(255, 50);
         fill(255, 10);
@@ -458,11 +519,15 @@ function mouseReleased(event){
   mrx = mouseX;
   mry = mouseY;
   mrMS = mouseMS;
+  if(C && M === MODE_SELECT){
+    C.filter(c => (c.x > Math.min(mpx, mrx) && c.x < Math.max(mpx, mrx))).map(c => c.notes.filter(n => n.t > Math.min(mpMS, mrMS) && n.t < Math.max(mpMS, mrMS)).map(n => NS[n._id] = n));
+    NSl = Object.keys(NS).length;
+  }
 }
 function mouseWheel(event) {
   if(state !== 3) return;
-  if(sN && sN[0] instanceof TimingPoint && sN[3]){
-    sN[0].mspb += (event.delta < 0 == INVERTED_SCROLL ? -1 : 1) / 10 * (keys[16]?5:1) / (keys[17]?10:1);
+  if(sN && sN[0] instanceof TimingPoint && sN[3]){ // SV editing
+    sN[0].mspb += (event.delta < 0 == INVERTED_SCROLL ? -1 : 1) / 10 * (keys[16]?10:1) / (keys[17]?10:1);
     return false;
   }else if(keys[17]){
     const temp_d = d;
@@ -471,7 +536,7 @@ function mouseWheel(event) {
     updateLineBuffers();
     return false;
   }else if(keys[18]){
-    if(sN){
+    if(sN){ // 1ms ALT shifting on immediately focused note
       sN[0].t += ((event.delta < 0 == INVERTED_SCROLL) ? 1 : -1) * (keys[16] ? 10 : 1);
       sN[0]._t += ((event.delta < 0 == INVERTED_SCROLL) ? 1 : -1) * (keys[16] ? 10 : 1);
     }
@@ -509,7 +574,7 @@ function mouseWheel(event) {
 function keyPressed(){
   if(state !== 3) return;
   keys[keyCode] = true;
-  const temp_d = d;
+  const temp_d = d
   switch(keyCode){
     case 32:
       if(SongAudio.paused){
@@ -532,11 +597,14 @@ function keyPressed(){
             const n = c.notes[i];
             if(n.t > Math.min(mpMS, mrMS) && n.t < Math.max(mpMS, mrMS)){
               c.notes.splice(i, 1);
+              if(NS[c.notes[i]._id]) NSl --;
+              delete NS[c.notes[i]._id];
               if(c.type) TP.splice(TP.indexOf(n), 1);
             }
           }
         }
       });
+      if(tp >= TP.length) tp = TP.length-1; // make sure it doesnt access deleted timingpoints
       break;
     case 67: // C opy
       if(keys[17]){
@@ -716,7 +784,7 @@ async function parseFile(file){
   parse.onload = async e => {
     const parseDone = performance.now();
     console.info(`Finished parsing audio file. Took ${Math.floor(performance.now() - parseStart)} ms.`);
-    SongAudio = new Audio(e.target.result.replace("data:;base64,", "data:audio/mp3;base64,"));
+    SongAudio = new Audio(e.target.result.replace("data:application/octet-stream;base64,", "data:audio/mp3;base64,").replace("data:;base64,", "data:audio/mp3;base64,"));
     SongAudio.onloadeddata = () => {
       console.info(`Finished loading audio file. Took ${Math.floor(performance.now() - parseDone)} ms.`);
       tp = 0;

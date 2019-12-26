@@ -87,6 +87,13 @@ h1 {
 }
 
 /* SideMenu */
+#sidecontainer {
+  position: fixed;
+  margin: 0;
+  width: 225px;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.5);
+}
 #sidemenu {
   position: fixed;
   width: 215px;
