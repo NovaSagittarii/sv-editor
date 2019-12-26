@@ -78,7 +78,7 @@ const snap = (ms) => (Math[SNAPPING_MODE](( (ms-(to % (mspb/d))) /mspb)*d)*mspb)
 const TimingPoint = function(to, mspb, m, ss, si, v, i, k){
   this.t = to;
   this.mspb = mspb > 0 ? mspb : -100/mspb
-  this.bpm = 1;
+  this.bpm = TP.length ? TP[TP.length-1].bpm : 1;
   this.m = m;    // meter
   this.ss = ss;  // sample set
   this.si = si;  // sample index
@@ -88,12 +88,28 @@ const TimingPoint = function(to, mspb, m, ss, si, v, i, k){
   this._id = (_nid ++).toString(36);
   if(this.i) this.bpm = Float64Array.of(60000/mspb);
 };
+TimingPoint.prototype.export = function(mode){
+  switch(mode){
+    case ".osu":
+      return `${Math.round(this.t)},${this.i ? this.mspb : -1/this.mspb*100},${this.m},${this.ss},${this.si},${this.v},${this.i+0},${this.k+0}`;
+      break;
+  }
+};
 const Note = function(x, y, t, type, hs, et){
   this.t = t;
   this.ln = type > 100; // 1 - note, 128 - long_note
   this.hs = hs;
   this._t = et || t;
   this._id = (_nid ++).toString(36);
+};
+Note.prototype.export = function(mode, column){
+  const KC = C.length-3;
+  const COL = column.id;
+  switch(mode){
+    case ".osu":
+      return `${Math.floor((512/KC)*(0.5+COL))},192,${Math.floor(this.t)},${this.ln?128:1},${this.hs},${this.ln?Math.floor(this._t):0}:0:0:0:`;
+      break;
+  }
 };
 const Column = function(x, w, t){
   this.x = x;
@@ -608,15 +624,20 @@ function keyPressed(){
       break;
     case 67: // C opy
       if(keys[17]){
-        clipboard = C.map(c => (c.x > Math.min(mpx, mrx) && c.x < Math.max(mpx, mrx)) ? c.notes.filter(n => n.t > Math.min(mpMS, mrMS) && n.t < Math.max(mpMS, mrMS)) : []);
+        clipboard = C.map(c => (c.x > Math.min(mpx, mrx) && c.x < Math.max(mpx, mrx)) ? c.notes.filter(n => NS[n._id]).map(n => n.export('.osu', c)) : []);
       }
       break;
     case 86: // V paste
       if(keys[17]){
-        const clipboardFirst = Math.min(...clipboard.filter(c => c[0]).map(c => c[0].t)); // assuming no one uses a 65000k map xD
+        // convert text to objects
+        const cb = clipboard.slice(0);
+        const clipboardObjects = cb.splice(0, C.length-3).map(c => c.map(n => n = new Note(...(n+":").split(':')[0].split(',').map(e => parseInt(e))))).concat(cb.map(c => c.map(n => n = new TimingPoint(...(n.split(',').map(e => parseFloat(e) || parseInt(e)))))));
+        console.log(clipboardObjects);
+        // continue from there ...
+        const clipboardFirst = Math.min(...clipboardObjects.filter(c => c[0]).map(c => c[0].t)); // assuming no one uses a 65000k map xD
         const currentTime = t-yt*mspb;
         const offset = currentTime-clipboardFirst;
-        const clipboard_offset = clipboard.map(c => c.length ? c.map(n => {n = Object.assign({}, n); n.t += offset; n._t += offset; return n}) : []);
+        const clipboard_offset = clipboardObjects.map(c => c.length ? c.map(n => {n = Object.assign({}, n); n.t += offset; n._t += offset; return n}) : []);
         console.log(clipboard_offset);
         C.map(c => {
           const N = clipboard_offset[c.id];
@@ -627,6 +648,25 @@ function keyPressed(){
           }
           c.notes.sort((a,b) => a.t-b.t);
         });
+      }
+      break;
+    case 88: // X cut
+      if(keys[17]){
+        clipboard = C.map(c => (c.x > Math.min(mpx, mrx) && c.x < Math.max(mpx, mrx)) ? c.notes.filter(n => NS[n._id]).map(n => n.export('.osu', c)) : []);
+        C.forEach(c => {
+          if(c.x > Math.min(mpx, mrx) && c.x < Math.max(mpx, mrx)){
+            for(let i = c.notes.length-1; i >= 0; i --){
+              const n = c.notes[i];
+              if(n.t > Math.min(mpMS, mrMS) && n.t < Math.max(mpMS, mrMS)){
+                c.notes.splice(i, 1);
+                if(NS[c.notes[i]._id]) NSl --;
+                delete NS[c.notes[i]._id];
+                if(c.type) TP.splice(TP.indexOf(n), 1);
+              }
+            }
+          }
+        });
+        if(tp >= TP.length) tp = TP.length-1; // make sure it doesnt access deleted timingpoints
       }
       break;
     case 189: // -
@@ -756,9 +796,6 @@ async function parseFile(file){
   TimingPoints.forEach(e => {
     /*Offset, Milliseconds per Beat, Meter, Sample Set, Sample Index, Volume, Inherited, Kiai Mode*/
     const nTP = new TimingPoint(...e);
-    if(!nTP.i){
-      nTP.bpm = TP[TP.length-1].bpm;
-    }
     TP.push(nTP);
     C[Difficulty.CircleSize/* + TPC%3*/].notes.push(nTP);
     TPC ++;
