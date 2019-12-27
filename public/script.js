@@ -636,7 +636,7 @@ function keyPressed(){
         const clipboardFirst = Math.min(...clipboardObjects.filter(c => c[0]).map(c => c[0].t)); // assuming no one uses a 65000k map xD
         const currentTime = t-yt*mspb;
         const offset = currentTime-clipboardFirst;
-        const clipboard_offset = clipboardObjects.map(c => c.length ? c.map(n => {n = Object.assign({}, n); n.t += offset; n._t += offset; return n}) : []);
+        const clipboard_offset = clipboardObjects.map(c => c.length ? c.map(n => {n.t += offset; n._t += offset; return n}) : []);
         // console.log(clipboard_offset);
         C.map(c => {
           const N = clipboard_offset[c.id];
@@ -786,8 +786,8 @@ async function parseFile(file){
   C = [];
   yo = height - 150;
   // Add the columns (which notes will be added to)
-  for(let i = 0; i < Difficulty.CircleSize; i ++) C.push(new Column(50+i*70, 70, 0));
-  for(let i = 0; i < 3; i ++) C.push(new Column(120+(i+Difficulty.CircleSize)*70, 70, 1));
+  for(let i = 0; i < Difficulty.CircleSize; i ++) C.push(new Column(30+50+i*70, 70, 0));
+  for(let i = 0; i < 3; i ++) C.push(new Column(30+120+(i+Difficulty.CircleSize)*70, 70, 1));
   C.map(e => e.calculateTileHeight());
   calculateBoundaries();
 
