@@ -133,3 +133,12 @@ h1 {
   background: rgba(240, 245, 255, 0.67);
   transform: translateX(0) scaleX(0.8);
 }
+#bottom {
+  bottom: 0;
+  position: fixed;
+  text-align: center;
+  width: inherit;
+}
+#bottom > a {
+  color: rgba(0, 0, 0, 0.5);
+}
