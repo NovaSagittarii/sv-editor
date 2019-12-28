@@ -108,7 +108,7 @@ Note.prototype.export = function(mode){
   const KC = C.length-3;
   switch(mode){
     case ".osu":
-      return `${Math.floor((512/KC)*(0.5+this.x))},192,${Math.floor(this.t)},${this.ln?128:1},${this.hs},${this.ln?Math.floor(this._t):0}:0:0:0:`;
+      return `${Math.floor((512/KC)*(0.5+this.x))},192,${Math.floor(this.t)},${this.ln?128:1},${this.hs},${this.ln?Math.floor(this._t):0}:0:0:0:0:`;
       break;
   }
 };
