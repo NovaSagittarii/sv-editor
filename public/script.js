@@ -31,10 +31,11 @@ let NS = {}; // Note Selection
 let NSl = 0; // Note Selection size (length?)
 let clipboard = [];
 let _nid = 1;
+const mapdata = {};
 const keys = {};
 
 const COLUMN_FILL = "#000";
-const DSTROKE = ["#FFF", "#F00", "#44F", "#CC0", "#777", "#C800C8", "#8C008C", "#777", "#FAA", "#FBB", "#AFF", "#4ED", "#AAA", "#AAA"];
+const DSTROKE = ["#FFF", "#F00", "#44F", "#CC0", "#777", "#C800C8", "#8C008C", "#777", "#FAA", "#FBB", "#AFF", "#4ED", "#AAA", "#555"];
 //               1/1     1/2     1/4     1/8     1/16    1/3        1/6        1/12    1/5     2/5     1/10    1/20    1/24    1/32
 
 //
@@ -96,18 +97,18 @@ TimingPoint.prototype.export = function(mode){
   }
 };
 const Note = function(x, y, t, type, hs, et){
+  this.x = x;
   this.t = t;
   this.ln = type > 100; // 1 - note, 128 - long_note
   this.hs = hs;
   this._t = et || t;
   this._id = (_nid ++).toString(36);
 };
-Note.prototype.export = function(mode, column){
+Note.prototype.export = function(mode){
   const KC = C.length-3;
-  const COL = column.id;
   switch(mode){
     case ".osu":
-      return `${Math.floor((512/KC)*(0.5+COL))},192,${Math.floor(this.t)},${this.ln?128:1},${this.hs},${this.ln?Math.floor(this._t):0}:0:0:0:`;
+      return `${Math.floor((512/KC)*(0.5+this.x))},192,${Math.floor(this.t)},${this.ln?128:1},${this.hs},${this.ln?Math.floor(this._t):0}:0:0:0:`;
       break;
   }
 };
@@ -190,6 +191,7 @@ Column.prototype.drawNotes = function() {
               for(let c = 0; c < C.length; c ++){
                 if(C[c].mouseOver()){
                   if(C[c].type != this.type) break; // column type (note/TP) mismatch
+                  N.x = c.id;
                   C[c].notes.push(N);
                   C[c].notes.sort((a,b) => a.t-b.t);
                   this.notes.splice(j, 1);
@@ -356,7 +358,7 @@ Column.prototype.checkPlacement = function(){
         TP.sort((a,b) => a.t-b.t);
         this.notes.push(nTP);
       }else{
-        this.notes.push(new Note(null, null, t, 0));
+        this.notes.push(new Note(this.id, null, t, 0));
       }
       this.notes.sort((a,b) => a.t-b.t);
       mp = false;
@@ -365,7 +367,7 @@ Column.prototype.checkPlacement = function(){
       const t = (Math[SNAPPING_MODE](( (mpMS-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
       const t_e = (Math[SNAPPING_MODE](( (mouseMS-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
       console.log(t, t_e);
-      this.notes.push(new Note(null, null, t, 128, 0, t_e));
+      this.notes.push(new Note(this.id, null, t, 128, 0, t_e));
       this.notes.sort((a,b) => a.t-b.t);
       mr = false;
     }
@@ -623,7 +625,7 @@ function keyPressed(){
       break;
     case 67: // C opy
       if(keys[17]){
-        clipboard = C.map(c => (c.x > Math.min(mpx, mrx) && c.x < Math.max(mpx, mrx)) ? c.notes.filter(n => NS[n._id]).map(n => n.export('.osu', c)) : []);
+        clipboard = C.map(c => (c.x > Math.min(mpx, mrx) && c.x < Math.max(mpx, mrx)) ? c.notes.filter(n => NS[n._id]).map(n => n.export('.osu')) : []);
       }
       break;
     case 86: // V paste
@@ -631,6 +633,7 @@ function keyPressed(){
         // convert text to objects
         const cb = clipboard.slice(0);
         const clipboardObjects = cb.splice(0, C.length-3).map(c => c.map(n => n = new Note(...(n+":").split(':')[0].split(',').map(e => parseInt(e))))).concat(cb.map(c => c.map(n => n = new TimingPoint(...(n.split(',').map(e => parseFloat(e) || parseInt(e)))))));
+        clipboardObjects.map(c => c.forEach(n => n.x = clipboardObjects.indexOf(c)));
         // console.log(clipboardObjects);
         // continue from there ...
         const clipboardFirst = Math.min(...clipboardObjects.filter(c => c[0]).map(c => c[0].t)); // assuming no one uses a 65000k map xD
@@ -776,6 +779,9 @@ async function parseFile(file){
   d.split('\n\n').filter(e => e.startsWith('[Difficulty]'))[0].split('\n').slice(1).map(e => e.split(':')).map(e => Difficulty[e[0]] = parseInt(e[1]));
   console.log(Difficulty);
 
+  mapdata.filename = file.name;
+  mapdata.Difficulty = Difficulty;
+  mapdata.header = d.split('[TimingPoints]')[0];
   sideMenu.style.transform = "";
 
   //                                                               ignoring :extras ***
@@ -807,6 +813,7 @@ async function parseFile(file){
       console.warn("Invalid note format: ", e);
     }
   });
+  C.map(c => c.notes.forEach(n => n.x = c.id));
 
   tp = 0;
   mspb = TP[0].mspb;
@@ -860,14 +867,18 @@ const extras = {
     desc: "Exports all TimingPoint(s) in .osu format",
     exec: function(){
       console.log(TP.map(p => `${Math.round(p.t)},${p.i ? p.mspb : -1/p.mspb*100},${p.m},${p.ss},${p.si},${p.v},${p.i+0},${p.k+0}`).join('\n'));
-      alert("check console");
     }
   },
   "Nexp": {
     desc: "Exports all Note(s) in .osu format",
     exec: function(){
-      console.log(C.slice(0, C.length-3).map(c => c.notes).reduce((a,b) => a.concat(b)).sort((a,b) => a.t-b.t).map(n => n.export()));
-      alert("check console");
+      console.log(C.slice(0, C.length-3).map(c => c.notes).reduce((a,b) => a.concat(b)).sort((a,b) => a.t-b.t).map(n => n.export('.osu')).join('\n'));
+    }
+  },
+  "oEXP": {
+    desc: "Exports edited file as .osu file (starts download)",
+    exec: function(){
+      save([`${mapdata.header}[TimingPoints]\n${TP.map(p => `${Math.round(p.t)},${p.i ? p.mspb : -1/p.mspb*100},${p.m},${p.ss},${p.si},${p.v},${p.i+0},${p.k+0}`).join('\n')}\n\n\n[HitObjects]\n${C.slice(0, C.length-3).map(c => c.notes).reduce((a,b) => a.concat(b)).sort((a,b) => a.t-b.t).map(n => n.export('.osu')).join('\n')}`], mapdata.filename);
     }
   }
 };
