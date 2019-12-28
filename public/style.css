@@ -134,7 +134,7 @@ h1 {
   transform: translateX(0) scaleX(0.8);
 }
 #bottom {
-  bottom: 0;
+  bottom: 35px;
   position: fixed;
   text-align: center;
   width: inherit;
