@@ -603,21 +603,24 @@ function mouseWheel(event) {
         SongAudio.play();
       }, 150);
     }
-    const _d = keys[16] ? 1 : d;
-    if(event.delta < 0 == INVERTED_SCROLL){
-      if(SongAudio.paused && !sp_t){
-        yt = Math.ceil(yt * _d) / _d - 1/_d;
-      }else{
-        SongAudio.currentTime += mspb/_d/1000;
-        t = SongAudio.currentTime*1000;
-      }
+    moveSongPointer(event.delta < 0 == INVERTED_SCROLL, keys[16]);
+  }
+}
+function moveSongPointer(scrollDirection, measureIntervalOverride){
+  const _d = measureIntervalOverride ? 1 : d;
+  if(scrollDirection){
+    if(SongAudio.paused && !sp_t){
+      yt = Math.ceil(yt * _d) / _d - 1/_d;
     }else{
-      if(SongAudio.paused && !sp_t){
-        yt = Math.round(yt * _d) / _d + 1/_d;
-      }else{
-        SongAudio.currentTime -= mspb/_d/1000;
-        t = SongAudio.currentTime*1000;
-      }
+      SongAudio.currentTime += mspb/_d/1000;
+      t = SongAudio.currentTime*1000;
+    }
+  }else{
+    if(SongAudio.paused && !sp_t){
+      yt = Math.round(yt * _d) / _d + 1/_d;
+    }else{
+      SongAudio.currentTime -= mspb/_d/1000;
+      t = SongAudio.currentTime*1000;
     }
   }
 }
@@ -636,6 +639,8 @@ function keyPressed(){
         snapTime();
       }
       break;
+    case 33: moveSongPointer(true, true); break; // PAGE UP (one measure forward)
+    case 34: moveSongPointer(false, true); break; // PAGE DOWN (one measure backwards)
     case 39: yt = Math.ceil(yt * d) / d - 1/d; SongAudio.currentTime -= mspb/d/1000; break; // LEFT
     case 37: yt = Math.round(yt * d) / d + 1/d; SongAudio.currentTime += mspb/d/1000; break; // RIGHT
     case 38: d = divisors[divisors.indexOf(d)+1] || d; break; // UP
