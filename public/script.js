@@ -119,6 +119,17 @@ Note.prototype.export = function(mode){
 Note.prototype.withinTS = function(){ // within Time Selection (TSS/TSE)
   return !isNaN(TSE) && ((this._t > TSS && this._t < TSE) || (this.t > TSS && this.t < TSE));
 };
+Note.prototype.select = function(){
+  if(!NS[this._id]) NSl ++;
+  NS[this._id] = this;
+};
+Note.prototype.deselect = function(){
+  if(NS[this._id]) NSl --;
+  delete NS[this._id]; // remove from NoteSelection
+};
+Note.prototype.selected = function(){ // if in NoteSelection
+  return !!NS[this._id];
+};
 const Column = function(x, w, t){
   this.x = x;
   this.w = w;
@@ -229,10 +240,7 @@ Column.prototype.drawNotes = function() {
       if(this.mouseOver() && Math.abs(mouseY - YRP + this.thd2) < this.thd2){
         if(mp == 1 && M === MODE_SELECT){
           sN = [N, this.id, true];
-          if(!NSl || keys[17]){
-            if(!NS[N._id]) NSl ++;
-            NS[N._id] = N;
-          }
+          if(!NSl || keys[17]) N[N.selected() ? "deselect" : "select"]();
         }
         if(mp == 3){
           this.notes.splice(j, 1);
@@ -240,8 +248,7 @@ Column.prototype.drawNotes = function() {
           TP.splice(TP.indexOf(N), 1);
           mp = false;
           sN = null; // deleting notes
-          if(NS[N._id]) NSl --;
-          delete NS[N._id]; // remove from NoteSelection
+          N.deselect();
           continue;
         }
         if(sel) sN[3] = true;
@@ -288,16 +295,17 @@ Column.prototype.drawNotes = function() {
         if(YRP_E > height+100) break;
         const YRP_C = (YRP+YRP_E)/2 - this.thd2; // yrender pos center
 
+        const PNOTE = N.t > N._t;
+        const YHB_S = PNOTE ? YRP_E : YRP; // Y hitbox start (bottom)
+        const YHB_E = PNOTE ? YRP-this.th : YRP_E-this.th; // Y hitbox end (top)
         if(this.mouseOver()){
-          if(mouseY < YRP && mouseY > YRP_E - this.th){
+          if(mouseY < YHB_S && mouseY > YHB_E){
             if(mp == 1 && M === MODE_SELECT){
-              sN = [N, this.id, true, (mouseY < YRP_E)+0]; // sN[3] if the tail is selected
-              if(!NS[N._id]) NSl ++;
-              NS[N._id] = N;
+              sN = [N, this.id, true, (mouseY < YHB_E+this.th)+0]; // sN[3] if the tail is selected
+              if(!NSl || keys[17]) N[N.selected() ? "deselect" : "select"]();
             }
             if(mp == 3){
-              if(NS[N._id]) NSl --;
-              delete NS[N._id];
+              N.deselect();
               this.notes.splice(j, 1);
               mp = false;
               sN = null;
@@ -320,7 +328,7 @@ Column.prototype.drawNotes = function() {
           fill(255, 50);
           stroke(255, 100);
           strokeWeight(2);
-          rect(this.x, YRP_C, this.w + 6, LN_H + this.th*2 + 6);
+          rect(this.x, YRP_C, this.w + 6, LN_H + this.th*2 + 6 - PNOTE*2*this.th);
         }
         translate(this.x, YRP_E - this.thd2);
         scale(1, -1);
@@ -329,12 +337,10 @@ Column.prototype.drawNotes = function() {
         if(this.mouseOver() && Math.abs(mouseY - YRP + this.thd2) < this.thd2){
           if(mp == 1 && M === MODE_SELECT){
             sN = [N, this.id, true];
-            if(!NS[N._id]) NSl ++;
-            NS[N._id] = N;
+            if(!NSl || keys[17]) N[N.selected() ? "deselect" : "select"]();
           }
           if(mp == 3){
-            if(NS[N._id]) NSl --;
-            delete NS[N._id];
+            N.deselect();
             this.notes.splice(j, 1);
             mp = false;
             sN = null;
