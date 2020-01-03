@@ -26,6 +26,7 @@ const MODE_SELECT = 0, MODE_PLACE_NOTE = 1, MODE_PLACE_LONG_NOTE = 2;
 let M = MODE_SELECT; // mode
 
 let mp = false, mpx, mpy, mpMS, mr, mrx, mry, mrMS, mouseMS;
+let TSS, TSE, TSL, TSR; // time selection start/end, left/right (Math.min/max of mpMS/mrMS)
 let sN = null;  // selectedNote
 let NS = {}; // Note Selection
 let NSl = 0; // Note Selection size (length?)
@@ -96,6 +97,9 @@ TimingPoint.prototype.export = function(mode){
       break;
   }
 };
+TimingPoint.prototype.withinTS = function(){
+  return !isNaN(TSE) && this.t > TSS && this.t < TSE;
+};
 const Note = function(x, y, t, type, hs, et){
   this.x = x;
   this.t = t;
@@ -111,6 +115,9 @@ Note.prototype.export = function(mode){
       return `${Math.floor((512/KC)*(0.5+this.x))},192,${Math.floor(this.t)},${this.ln?128:1},${this.hs},${this.ln?Math.floor(this._t):0}:0:0:0:0:`;
       break;
   }
+};
+Note.prototype.withinTS = function(){ // within Time Selection (TSS/TSE)
+  return !isNaN(TSE) && ((this._t > TSS && this._t < TSE) || (this.t > TSS && this.t < TSE));
 };
 const Column = function(x, w, t){
   this.x = x;
@@ -162,8 +169,12 @@ Column.prototype.drawNotes = function() {
 
     push();
     const sel = sN && sN[0] === N; // ifSelected determination & drawing things?
-    const withinSelection = NS[N._id] !== undefined;
-    if(sN && !sN[3] && mouseIsPressed && withinSelection) translate(mouseX - mpx, (mpMS-mouseMS) * z);
+    const withinSelection = NS[N._id] !== undefined || (mouseIsPressed && M === MODE_SELECT && this.withinTS() && N.withinTS());
+    if(sN && !sN[3] && mouseIsPressed && withinSelection){
+      translate(0, (mpMS-mouseMS) * z);
+      if(this.type) push();
+      translate(mouseX - mpx, 0);
+    }
     if(sel){
       if(sN[2]){
         if(mouseIsPressed){
@@ -237,7 +248,7 @@ Column.prototype.drawNotes = function() {
       }
       // TODO: use different tiles for different tiles xdd (one-to-one, not one-to-all)
       image(withinSelection ? wsTile : svTile, this.x, YRP - this.thd2, this.w, this.th);
-      if(withinSelection && mouseIsPressed) translate(-(mouseX - mpx), 0); // "dragging effect"
+      if(sN && !sN[3] && withinSelection && mouseIsPressed) pop(); // lock x-axis
       stroke(N.i ? "#FF0000" : "#00FF00");
       strokeWeight(1);
       line(LB_C + (!N.i*15), YRP, RB_C, YRP);
@@ -383,6 +394,9 @@ Column.prototype.checkPlacement = function(){
     }
   }
 };
+Column.prototype.withinTS = function(){ // if column is horizontally present in the dragged "time" selection
+  return !isNaN(TSL) && this.x > TSL && this.x < TSR;
+};
 let C, TP = [], tp;
 let state = 0;
 let LB_C, RB_C, ZERO_CP, ZERO_W;
@@ -518,6 +532,14 @@ function draw() {
         stroke(255, 50);
         fill(255, 10);
         quad(mouseX, mouseY, mouseX, mpy_a, mpx, mpy_a, mpx, mouseY);
+        if(pmouseX !== mouseX){
+          TSL = Math.min(mouseX, mpx);
+          TSR = Math.max(mouseX, mpx);
+        }
+        if(pmouseY !== mouseY){
+          TSS = Math.min(mouseMS, mpMS);
+          TSE = Math.max(mouseMS, mpMS);
+        }
       }
       if(SongAudio && !SongAudio.ended && !SongAudio.paused) t = 1000*SongAudio.currentTime || 0;
       mp = mr = false;
@@ -530,14 +552,19 @@ function mousePressed(event){
   mpy = mouseY;
   mpyt = yt;
   mpMS = mouseMS;
+  TSS = TSE = null;
 }
 function mouseReleased(event){
   mr = event.button+1;
   mrx = mouseX;
   mry = mouseY;
   mrMS = mouseMS;
+  TSS = Math.min(mpMS, mrMS);
+  TSE = Math.max(mpMS, mrMS);
+  TSL = Math.min(mpx, mrx);
+  TSR = Math.max(mpx, mrx);
   if(C && M === MODE_SELECT){
-    C.filter(c => (c.x > Math.min(mpx, mrx) && c.x < Math.max(mpx, mrx))).map(c => c.notes.filter(n => n.t > Math.min(mpMS, mrMS) && n.t < Math.max(mpMS, mrMS)).map(n => NS[n._id] = n));
+    C.filter(c => c.withinTS()).map(c => c.notes.filter(n => n.withinTS()).map(n => NS[n._id] = n));
     NSl = Object.keys(NS).length;
   }
 }
@@ -609,10 +636,10 @@ function keyPressed(){
     case 40: d = divisors[divisors.indexOf(d)-1] || d; break; // DOWN
     case 46: // Del ete
       C.forEach(c => {
-        if(c.x > Math.min(mpx, mrx) && c.x < Math.max(mpx, mrx)){
+        if(c.withinTS()){
           for(let i = c.notes.length-1; i >= 0; i --){
             const n = c.notes[i];
-            if(n.t > Math.min(mpMS, mrMS) && n.t < Math.max(mpMS, mrMS)){
+            if(n.withinTS()){
               c.notes.splice(i, 1);
               if(NS[c.notes[i]._id]) NSl --;
               delete NS[c.notes[i]._id];
@@ -625,7 +652,7 @@ function keyPressed(){
       break;
     case 67: // C opy
       if(keys[17]){
-        clipboard = C.map(c => (c.x > Math.min(mpx, mrx) && c.x < Math.max(mpx, mrx)) ? c.notes.filter(n => NS[n._id]).map(n => n.export('.osu')) : []);
+        clipboard = C.map(c => c.withinTS() ? c.notes.filter(n => NS[n._id]).map(n => n.export('.osu')) : []);
       }
       break;
     case 86: // V paste
@@ -654,12 +681,12 @@ function keyPressed(){
       break;
     case 88: // X cut
       if(keys[17]){
-        clipboard = C.map(c => (c.x > Math.min(mpx, mrx) && c.x < Math.max(mpx, mrx)) ? c.notes.filter(n => NS[n._id]).map(n => n.export('.osu', c)) : []);
+        clipboard = C.map(c => c.withinTS() ? c.notes.filter(n => NS[n._id]).map(n => n.export('.osu', c)) : []);
         C.forEach(c => {
-          if(c.x > Math.min(mpx, mrx) && c.x < Math.max(mpx, mrx)){
+          if(c.withinTS()){
             for(let i = c.notes.length-1; i >= 0; i --){
               const n = c.notes[i];
-              if(n.t > Math.min(mpMS, mrMS) && n.t < Math.max(mpMS, mrMS)){
+              if(n.withinTS()){
                 c.notes.splice(i, 1);
                 if(NS[c.notes[i]._id]) NSl --;
                 delete NS[c.notes[i]._id];
