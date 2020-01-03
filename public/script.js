@@ -366,7 +366,7 @@ Column.prototype.checkPlacement = function(){
     text(~~mouseMS, mouseX, mouseY-15);
     //rect(this.x, Math[SNAPPING_MODE]((mouseY-fy) / (mspb*z/d)) * (mspb/d*z) + fy - this.thd2, this.w, this.th);
 
-    if(M === MODE_PLACE_NOTE && mp == 1){
+    if(M === MODE_PLACE_NOTE && !keys[16] && mp == 1){ // SHIFT(16) held for LN
       const t = (Math[SNAPPING_MODE](( (mouseMS-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
       if(this.type){
         const lTP = TP.filter(e => (e.t <= mouseMS)).reverse()[0];
@@ -380,7 +380,7 @@ Column.prototype.checkPlacement = function(){
       this.notes.sort((a,b) => a.t-b.t);
       mp = false;
     }
-    if(M === MODE_PLACE_LONG_NOTE && mr == 1 && !this.type){
+    if((M === MODE_PLACE_LONG_NOTE || (M === MODE_PLACE_NOTE && keys[16])) && mr == 1 && !this.type){
       const t = (Math[SNAPPING_MODE](( (mpMS-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
       const t_e = (Math[SNAPPING_MODE](( (mouseMS-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
       console.log(t, t_e);
