@@ -119,15 +119,15 @@ Note.prototype.export = function(mode){
 Note.prototype.withinTS = function(){ // within Time Selection (TSS/TSE)
   return !isNaN(TSE) && ((this._t > TSS && this._t < TSE) || (this.t > TSS && this.t < TSE));
 };
-Note.prototype.select = function(){
+Note.prototype.select = TimingPoint.prototype.select = function(){
   if(!NS[this._id]) NSl ++;
   NS[this._id] = this;
 };
-Note.prototype.deselect = function(){
+Note.prototype.deselect = TimingPoint.prototype.deselect = function(){
   if(NS[this._id]) NSl --;
   delete NS[this._id]; // remove from NoteSelection
 };
-Note.prototype.selected = function(){ // if in NoteSelection
+Note.prototype.selected = TimingPoint.prototype.selected = function(){ // if in NoteSelection
   return !!NS[this._id];
 };
 const Column = function(x, w, t){
@@ -667,8 +667,7 @@ function keyPressed(){
             const n = c.notes[i];
             if(n.withinTS()){
               c.notes.splice(i, 1);
-              if(NS[c.notes[i]._id]) NSl --;
-              delete NS[c.notes[i]._id];
+              n.deselect();
               if(c.type) TP.splice(TP.indexOf(n), 1);
             }
           }
@@ -714,8 +713,7 @@ function keyPressed(){
               const n = c.notes[i];
               if(n.withinTS()){
                 c.notes.splice(i, 1);
-                if(NS[c.notes[i]._id]) NSl --;
-                delete NS[c.notes[i]._id];
+                n.deselect();
                 if(c.type) TP.splice(TP.indexOf(n), 1);
               }
             }
@@ -916,6 +914,44 @@ function setMode(HTMLObject){
 for(let i = 0; i < modes.length; i ++) modes[i].addEventListener('click', HTMLObject => setMode(HTMLObject.srcElement))
 
 const extras = {
+  "SVprune": {
+    desc: "Selects all TimingPoint(s) that are insignificant SV-wise and deletes them. (threshold 0.01ms)",
+    exec: function(){
+      TP.sort((a,b) => a.t-b.t);
+      Object.keys(NS).map(k => delete NS[k]);
+      NSl = 0;
+      _t = TP[0].t;
+      _tp = 0;
+      for(let i = 1; i < TP.length-1; i ++){
+      	const sv = TP[i];
+      	const k = sv.i ? 1 : sv.mspb;
+      	const k0 = TP[_tp].i ? 1 : TP[_tp].mspb;
+      	_t += (TP[i].t - TP[i-1].t) * k;
+      	if((TP[i+1].t - TP[_tp+1].t) * Math.abs(k - k0) < 0.01){
+      		if(!sv.i){
+            sv.select();
+            /*C.filter(c => c.type).filter(c => c.notes.indexOf(sv)+1).forEach(c => c.notes.splice(c.notes.indexOf(sv), 1));
+            TP.splice(i, 1);*/
+            continue;
+          }
+        }else{
+          _tp = i;
+        }
+      	//sv._t = _t;
+      }
+      console.log("Found %s TimingPoint(s) below threshold", NSl);
+      C.forEach(c => {
+        for(let i = c.notes.length-1; i >= 0; i --){
+          const n = c.notes[i];
+          if(n.selected()){
+            c.notes.splice(i, 1);
+            n.deselect();
+            if(c.type) TP.splice(TP.indexOf(n), 1);
+          }
+        }
+      });
+    }
+  },
   "TPexp": {
     desc: "Exports all TimingPoint(s) in .osu format",
     exec: function(){
