@@ -104,7 +104,7 @@ const Note = function(x, y, t, type, hs, et){
   this.x = x;
   this.t = t;
   this.ln = type > 100; // 1 - note, 128 - long_note
-  this.hs = hs;
+  this.hs = hs || 0;
   this._t = et || t;
   this._id = (_nid ++).toString(36);
 };
@@ -143,7 +143,7 @@ const Column = function(x, w, t){
   this.thd2 = 0;
 };
 Column.prototype.calculateTileHeight = function(){
-  const Tile = this.type ? svTile : tile[ColumnNote[C.length-3][this.id]];
+  const Tile = this.type ? I.svTile[0] : I.tile[ColumnNote[C.length-3][this.id]];
   this.th = Math.floor(Tile.height * (this.w / Tile.width));
   this.thd2 = this.th/2;
 };
@@ -254,7 +254,7 @@ Column.prototype.drawNotes = function() {
         if(sel) sN[3] = true;
       }
       // TODO: use different tiles for different tiles xdd (one-to-one, not one-to-all)
-      image(withinSelection ? wsTile : svTile, this.x, YRP - this.thd2, this.w, this.th);
+      image(I[withinSelection ? "svTileWS" : "svTile"][0], this.x, YRP - this.thd2, this.w, this.th);
       if(sN && !sN[3] && withinSelection && mouseIsPressed) pop(); // lock x-axis
       stroke(N.i ? "#FF0000" : "#00FF00");
       strokeWeight(1);
@@ -318,8 +318,8 @@ Column.prototype.drawNotes = function() {
         // TODO : fix all the [withinSelection ? wsTile : ]
 
         const LN_H = YRP - YRP_E - this.th; // long note height
-        image(withinSelection ? wsTile : lnBody[ColumnNote[C.length-3][this.id]], this.x, YRP_C, this.w, LN_H);
-        image(withinSelection ? wsTile : lnHead[ColumnNote[C.length-3][this.id]], this.x, YRP - this.thd2, this.w, this.th);
+        image(I[withinSelection ? "lnBodyWS" : "lnBody"][ColumnNote[C.length-3][this.id]], this.x, YRP_C, this.w, LN_H);
+        image(I[withinSelection ? "lnHeadWS" : "lnHead"][ColumnNote[C.length-3][this.id]], this.x, YRP - this.thd2, this.w, this.th);
 
         if(sel){
           fill(255, 150);
@@ -332,7 +332,7 @@ Column.prototype.drawNotes = function() {
         }
         translate(this.x, YRP_E - this.thd2);
         scale(1, -1);
-        image(withinSelection ? wsTile : lnHead[ColumnNote[C.length-3][this.id]], 0, 0, this.w, this.th);
+        image(I[withinSelection ? "lnHeadWS" : "lnHead"][ColumnNote[C.length-3][this.id]], 0, 0, this.w, this.th);
       }else{
         if(this.mouseOver() && Math.abs(mouseY - YRP + this.thd2) < this.thd2){
           if(mp == 1 && M === MODE_SELECT){
@@ -349,7 +349,7 @@ Column.prototype.drawNotes = function() {
           tint(255, 150);
         }
         // TODO: use different tiles for different tiles xdd (one-to-one, not one-to-all)
-        image(withinSelection ? wsTile : tile[ColumnNote[C.length-3][this.id]], this.x, YRP - this.thd2, this.w, this.th);
+        image(I[withinSelection ? "tileWS" : "tile"][ColumnNote[C.length-3][this.id]], this.x, YRP - this.thd2, this.w, this.th);
       }
     }
     pop();
@@ -409,6 +409,7 @@ let LB_C, RB_C, ZERO_CP, ZERO_W;
 
 let sp_t; // scroll pause timeout
 let tile, svTile, lnHead, lnBody, wsTile;
+const I = {};
 
 function calculateBoundaries(){
   LB_C = C[0].x - C[0].w/2 - 15;
@@ -429,22 +430,36 @@ function updateTPInfo(){
   }
 }
 function preload(){
-  tile = [loadImage('https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-note1.png?v=1575240010874'), loadImage('https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-note2.png?v=1570597631148'), loadImage('https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-noteS.png?v=1575244041951')]; //loadImage('/assets/mania-note2.png');
-  svTile = loadImage('https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fsv-note.png?v=1570675367228');
-  lnHead = [loadImage('https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-note1H.png?v=1575240017358'), loadImage('https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-note2H.png?v=1570675914438'), loadImage('https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-noteSH.png?v=1575244053926')];
-  lnBody = [loadImage('https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-note1L.png?v=1575240026387'), loadImage('https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-note2L.png?v=1570675925075'), loadImage('https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-noteSL.png?v=1575244059699')];
+  I.tile = ['https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-note1.png?v=1575240010874', 'https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-note2.png?v=1570597631148', 'https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-noteS.png?v=1575244041951']; //'/assets/mania-note2.png');
+  I.svTile = ['https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fsv-note.png?v=1570675367228'];
+  I.lnHead = ['https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-note1H.png?v=1575240017358', 'https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-note2H.png?v=1570675914438', 'https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-noteSH.png?v=1575244053926'];
+  I.lnBody = ['https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-note1L.png?v=1575240026387', 'https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-note2L.png?v=1570675925075', 'https://cdn.glitch.com/bbcc0f1c-4353-4f2e-808d-19c8ff47a165%2Fmania-noteSL.png?v=1575244059699'];
+  Object.keys(I).map(k => I[k].forEach((_, i) => I[k][i] = loadImage(_)));
 }
 function setup() {
   const canvas = createCanvas(windowWidth-225, windowHeight-30);
   canvas.parent('canvas-wrapper');
 
   // render the "withinSelection" image
-  push();
+  /*push();
   clear();
   tint(255, 100);
   image(svTile, 0, 0);
   wsTile = get(0, 0, svTile.width, svTile.height);
-  pop();
+  pop();*/
+  Object.keys(I).map(k => {
+    I[k+"WS"] = [];
+    I[k].forEach((img, i) => {
+      push();
+      clear();
+      image(img, 0, 0);
+      tint(255, 128, 0, 200);
+      image(img, 0, 0);
+      I[k+"WS"][i] = get(0, 0, img.width, img.height);
+      pop();
+    })
+  });
+
 
   frameRate(240);
   imageMode(CENTER);
