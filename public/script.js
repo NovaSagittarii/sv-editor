@@ -911,7 +911,18 @@ function setMode(HTMLObject){
   HTMLObject.className = "selected";
   M = parseInt(HTMLObject.getAttribute('m'));
 }
-for(let i = 0; i < modes.length; i ++) modes[i].addEventListener('click', HTMLObject => setMode(HTMLObject.srcElement))
+for(let i = 0; i < modes.length; i ++) modes[i].addEventListener('click', HTMLObject => setMode(HTMLObject.srcElement));
+
+function download(data, fileName, fileOptions) {
+  const _file = new File(data, fileName, fileOptions);
+  const _link = document.createElement('a');
+  _link.href = URL.createObjectURL(_file);
+  _link.download = fileName;
+  console.log(_link.href);
+  _link.click();
+  alert("Download started");
+  URL.revokeObjectURL(_file);
+}
 
 const extras = {
   "SVprune": {
@@ -967,7 +978,7 @@ const extras = {
   "oEXP": {
     desc: "Exports edited file as .osu file (starts download)",
     exec: function(){
-      save([`${mapdata.header}[TimingPoints]\n${TP.map(p => `${Math.round(p.t)},${p.i ? p.mspb : -1/p.mspb*100},${p.m},${p.ss},${p.si},${p.v},${p.i+0},${p.k+0}`).join('\n')}\n\n\n[HitObjects]\n${C.slice(0, C.length-3).map(c => c.notes).reduce((a,b) => a.concat(b)).sort((a,b) => a.t-b.t).map(n => n.export('.osu')).join('\n')}`], mapdata.filename);
+      download([`${mapdata.header}[TimingPoints]\n${TP.map(p => `${Math.round(p.t)},${p.i ? p.mspb : -1/p.mspb*100},${p.m},${p.ss},${p.si},${p.v},${p.i+0},${p.k+0}`).join('\n')}\n\n\n[HitObjects]\n${C.slice(0, C.length-3).map(c => c.notes).reduce((a,b) => a.concat(b)).sort((a,b) => a.t-b.t).map(n => n.export('.osu')).join('\n')}`], mapdata.filename, {type: 'text/plain'});
     }
   }
 };
