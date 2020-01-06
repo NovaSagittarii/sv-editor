@@ -16,6 +16,7 @@ let flb = 0;    // first line buffer
 let llb = 0;    // last line buffer
 let mspb;       // milliseconds per beat
 let bpm;
+let live_sv;
 
 let SNAPPING_MODE = "round";
 let INVERTED_SCROLL = false;
@@ -132,6 +133,7 @@ Note.prototype.selected = TimingPoint.prototype.selected = function(){ // if in 
 };
 const Column = function(x, w, t){
   this.x = x;
+  this.x2 = x + 800;
   this.w = w;
   this.w2 = w/2;
   this.RB = x - w/2;
@@ -253,7 +255,6 @@ Column.prototype.drawNotes = function() {
         }
         if(sel) sN[3] = true;
       }
-      // TODO: use different tiles for different tiles xdd (one-to-one, not one-to-all)
       image(I[withinSelection ? "svTileWS" : "svTile"][0], this.x, YRP - this.thd2, this.w, this.th);
       if(sN && !sN[3] && withinSelection && mouseIsPressed) pop(); // lock x-axis
       stroke(N.i ? "#FF0000" : "#00FF00");
@@ -315,8 +316,6 @@ Column.prototype.drawNotes = function() {
           }
         }
 
-        // TODO : fix all the [withinSelection ? wsTile : ]
-
         const LN_H = YRP - YRP_E - this.th; // long note height
         image(I[withinSelection ? "lnBodyWS" : "lnBody"][ColumnNote[C.length-3][this.id]], this.x, YRP_C, this.w, LN_H);
         image(I[withinSelection ? "lnHeadWS" : "lnHead"][ColumnNote[C.length-3][this.id]], this.x, YRP - this.thd2, this.w, this.th);
@@ -348,7 +347,6 @@ Column.prototype.drawNotes = function() {
           }
           tint(255, 150);
         }
-        // TODO: use different tiles for different tiles xdd (one-to-one, not one-to-all)
         image(I[withinSelection ? "tileWS" : "tile"][ColumnNote[C.length-3][this.id]], this.x, YRP - this.thd2, this.w, this.th);
       }
     }
@@ -403,6 +401,33 @@ Column.prototype.checkPlacement = function(){
 Column.prototype.withinTS = function(){ // if column is horizontally present in the dragged "time" selection
   return !isNaN(TSL) && this.x > TSL && this.x < TSR;
 };
+Column.prototype.renderSV = function(){
+  if(this.type) return;
+  for(let j = this.notes.length-1; j >= 0; j --){
+    const N = this.notes[j];
+    //const YRP = Math.round(yo - (N.t - t + yt*mspb) * z);
+    const YRP = Math.round(yo + ( TP[tp].$t + (t-yt*mspb-TP[tp].t)*TP[tp].mspb - N.$t) * z);
+    if(N._t < t) break; // if past the time, then it is "hit"
+    if(YRP <= 0) continue;
+
+    if(N.ln){
+      const YRP_E = Math.round(yo + ( TP[tp].$t + (t-yt*mspb-TP[tp].t)*TP[tp].mspb - N.$_t) * z);
+      if(YRP_E > height+100) break;
+      const YRP_C = (YRP+YRP_E)/2 - this.thd2; // yrender pos center
+      const LN_H = YRP - YRP_E - this.th; // long note height
+      image(I["lnBody"][ColumnNote[C.length-3][this.id]], this.x2, YRP_C, this.w, LN_H);
+      image(I["lnHead"][ColumnNote[C.length-3][this.id]], this.x2, YRP - this.thd2, this.w, this.th);
+      push();
+      translate(this.x2, YRP_E - this.thd2);
+      scale(1, -1);
+      image(I["lnHead"][ColumnNote[C.length-3][this.id]], 0, 0, this.w, this.th);
+      pop();
+    }else{
+      image(I["tile"][ColumnNote[C.length-3][this.id]], this.x2, YRP - this.thd2, this.w, this.th);
+    }
+  }
+};
+
 let C, TP = [], tp;
 let state = 0;
 let LB_C, RB_C, ZERO_CP, ZERO_W;
@@ -411,6 +436,35 @@ let sp_t; // scroll pause timeout
 let tile, svTile, lnHead, lnBody, wsTile;
 const I = {};
 
+function cacheTP(){ // no idea if this is the most efficient or optimised but it should work. (hopefully)
+  TP.sort((a,b) => a.t-b.t);
+  TP[0].$t = 0;
+  // calculate "apparent time" of timingpoints
+  for(let i = 1; i < TP.length; i ++) TP[i].$t = TP[i-1].$t + (TP[i].t - TP[i-1].t) * (TP[i-1].i ? 1 : TP[i-1].mspb);
+  // calculate "apparent time" of notes
+  let i;
+  C.filter(c => !c.type).forEach(c => {
+    c.notes.sort((a,b) => a._t-b._t);
+    i = TP.length-1;
+    for(let n = c.notes.length-1; n >= 0; n --){
+      const N = c.notes[n];
+      while(N._t < TP[i].t){
+        i --;
+      }
+      N.$_t = TP[i].$t + (N._t - TP[i].t) * (TP[i].i ? 1 : TP[i].mspb);
+    }
+
+    c.notes.sort((a,b) => a.t-b.t);
+    i = TP.length-1;
+    for(let n = c.notes.length-1; n >= 0; n --){
+      const N = c.notes[n];
+      while(N.t < TP[i].t && i){
+        i --;
+      }
+      N.$t = TP[i].$t + (N.t - TP[i].t) * (TP[i].i ? 1 : TP[i].mspb);
+    }
+  });
+}
 function calculateBoundaries(){
   LB_C = C[0].x - C[0].w/2 - 15;
   RB_C = C[C.length-1].x + C[C.length-1].w/2 + 15;
@@ -500,11 +554,11 @@ function draw() {
     case 3:
       clear();
       mouseMS = (yo - mouseY)/z - yt*mspb + t;
-      while(tp && t < TP[tp].t){
+      while(tp && t-yt*mspb < TP[tp].t){
         tp --;
         updateTPInfo();
       }
-      while(tp+1 < TP.length && t >= TP[tp+1].t){
+      while(tp+1 < TP.length && t-yt*mspb >= TP[tp+1].t){
         tp ++;
         updateTPInfo();
       }
@@ -514,11 +568,13 @@ function draw() {
       for(let i = 0; i < C.length; i ++) C[i].draw();
       for(let i = 0; i < C.length; i ++) C[i].drawNotes();
       for(let i = 0; i < C.length; i ++) C[i].checkPlacement();
+      if(live_sv) for(let i = 0; i < C.length-3; i ++) C[i].renderSV();
       if(sN == null) sN = undefined; // something about transitions
       strokeWeight(4);
       stroke(PSTROKE);
-      line(LB_C, yo+1, RB_C, yo+2);
-      line(RB_C+55, yo+1, RB_C+205, yo+2);
+      line(LB_C, yo+1, RB_C, yo+1);
+      line(LB_C+800, yo+1, RB_C+800, yo+1);
+      line(RB_C+55, yo+1, RB_C+205, yo+1);
       strokeWeight(1);
       line(RB_C+70, yo-3, RB_C+70, yo+6);   // 1.00x
       line(RB_C+55, yo-3, RB_C+55, yo+6);   // 0.00x
@@ -541,6 +597,7 @@ function draw() {
       text("D :\nZ :\nbpm :\n|\nsv :\ntpid :\ntpmax :\nNSl :", RB_C+285, 490);
       textAlign(LEFT, CENTER);
       text(`1/${d}\n${zR}\n${bpm.toFixed(2)} bpm\n${TP[tp].i ? "" : ((bpm * TP[tp].mspb).toFixed(2) + " bpm [a]")}\n${(TP[tp].i ? 1 : TP[tp].mspb).toFixed(2) + "x"}\n${tp}\n${TP.length-1}\n${NSl}`, RB_C+290, 490);
+      text(Math.floor(t-yt*mspb), RB_C+215, yo);
       pop();
 
       /*push();
@@ -979,6 +1036,13 @@ const extras = {
     desc: "Exports edited file as .osu file (starts download)",
     exec: function(){
       download([`${mapdata.header}[TimingPoints]\n${TP.map(p => `${Math.round(p.t)},${p.i ? p.mspb : -1/p.mspb*100},${p.m},${p.ss},${p.si},${p.v},${p.i+0},${p.k+0}`).join('\n')}\n\n\n[HitObjects]\n${C.slice(0, C.length-3).map(c => c.notes).reduce((a,b) => a.concat(b)).sort((a,b) => a.t-b.t).map(n => n.export('.osu')).join('\n')}`], mapdata.filename, {type: 'text/plain'});
+    }
+  },
+  "view": {
+    desc: "view sv",
+    exec: function(){
+      cacheTP();
+      live_sv = true;
     }
   }
 };
