@@ -406,12 +406,12 @@ Column.prototype.renderSV = function(){
   for(let j = this.notes.length-1; j >= 0; j --){
     const N = this.notes[j];
     //const YRP = Math.round(yo - (N.t - t + yt*mspb) * z);
-    const YRP = Math.round(yo + ( TP[tp].$t + (t-yt*mspb-TP[tp].t)*TP[tp].mspb - N.$t) * z);
+    const YRP = Math.round(yo + ( TP[tp].$t + (t-yt*mspb-TP[tp].t)*(TP[tp].i ? 1 : TP[tp].mspb) - N.$t) * z);
     if(N._t < t) break; // if past the time, then it is "hit"
     if(YRP <= 0) continue;
 
     if(N.ln){
-      const YRP_E = Math.round(yo + ( TP[tp].$t + (t-yt*mspb-TP[tp].t)*TP[tp].mspb - N.$_t) * z);
+      const YRP_E = Math.round(yo + ( TP[tp].$t + (t-yt*mspb-TP[tp].t)*(TP[tp].i ? 1 : TP[tp].mspb) - N.$_t) * z);
       if(YRP_E > height+100) break;
       const YRP_C = (YRP+YRP_E)/2 - this.thd2; // yrender pos center
       const LN_H = YRP - YRP_E - this.th; // long note height
