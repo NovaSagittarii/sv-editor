@@ -1,0 +1,27 @@
+{
+  "name": "sv-editor",
+  "version": "1.0.0",
+  "description": "mania editor but it's designed for an easier SV editing experience. xd",
+  "main": "null",
+  "scripts": {
+    "setup": "echo \"Setting up\" && mkdir ./public/lib/JSzip && npm i && mv -v ./node_modules/jszip/* ./public/lib/JSzip/ && exit 0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NovaSagittarii/sv-editor.git"
+  },
+  "author": "NovaSagittarii",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/NovaSagittarii/sv-editor/issues"
+  },
+  "homepage": "https://github.com/NovaSagittarii/sv-editor#readme",
+  "dependencies": {
+    "jszip": "^3.2.2"
+  },
+  "devDependencies": {},
+  "keywords": [
+    "bms",
+    "editor"
+  ]
+}
