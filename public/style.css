@@ -79,7 +79,7 @@ h1 {
 .invalid { background: #fdf; }
 
 /* SongAudio mp3 display at bottom */
-#SongAudio {
+#waveform {
   display: block !important;
   position: fixed;
   width: 100%;

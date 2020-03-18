@@ -553,6 +553,11 @@ function draw() {
       break;
     case 3:
       clear();
+      if(yt){ // immediately update SongAudio.currentTime to update the waveform display
+        SongAudio.currentTime = (t - yt*mspb)/1000;
+        t -= yt*mspb;
+        yt = 0;
+      }
       mouseMS = (yo - mouseY)/z - yt*mspb + t;
       while(tp && t-yt*mspb < TP[tp].t){
         tp --;
@@ -810,7 +815,12 @@ const disabled = document.getElementById('disableCover');
 sideMenu.style.transform = "translateX(-100%)";
 File.prototype.slice = Blob.prototype.slice;
 
-let SongAudio;
+var SongAudio;
+const wavesurfer = WaveSurfer.create({
+    container: '#waveform',
+    scrollParent: true,
+    backend: 'MediaElement'
+});
 
 function clearHTML(htmlElement){
   while (htmlElement.firstChild) htmlElement.removeChild(htmlElement.firstChild);
@@ -933,11 +943,11 @@ async function parseFile(file){
   const parse = new FileReader();
   const parseStart = performance.now();
   parse.onload = async e => {
-    const parseDone = performance.now();
+    const loadStart = performance.now();
     console.info(`Finished parsing audio file. Took ${Math.floor(performance.now() - parseStart)} ms.`);
     SongAudio = new Audio(e.target.result.replace("data:application/octet-stream;base64,", "data:audio/mp3;base64,").replace("data:;base64,", "data:audio/mp3;base64,"));
     SongAudio.onloadeddata = () => {
-      console.info(`Finished loading audio file. Took ${Math.floor(performance.now() - parseDone)} ms.`);
+      console.info(`Finished loading audio file. Took ${Math.floor(performance.now() - loadStart)} ms.`);
       tp = 0;
       mspb = TP[0].mspb;
       bpm = TP[0].bpm[0];
@@ -947,6 +957,11 @@ async function parseFile(file){
       SongAudio.play();
       state = 2;
     };
+    const renderStart = performance.now();
+    wavesurfer.load(SongAudio);
+    wavesurfer.on('waveform-ready', () => {
+      console.info(`Finished rendering waveforms. Took ${Math.floor(performance.now() - renderStart)} ms.`);
+    });
   };
   const audioPATH = d.split('\n').filter(e => e.startsWith('AudioFilename: '))[0].replace('AudioFilename: ', '');
   console.log("Audio file: " + audioPATH);
