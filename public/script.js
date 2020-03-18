@@ -684,6 +684,7 @@ function mouseWheel(event) {
   }
 }
 function moveSongPointer(scrollDirection, measureIntervalOverride){
+  snapTime();
   const _d = measureIntervalOverride ? 1 : d;
   if(scrollDirection){
     if(SongAudio.paused && !sp_t){
@@ -817,9 +818,26 @@ File.prototype.slice = Blob.prototype.slice;
 
 var SongAudio;
 const wavesurfer = WaveSurfer.create({
-    container: '#waveform',
-    scrollParent: true,
-    backend: 'MediaElement'
+  backgroundColor: "#FFFFFF30",
+  cursorColor: "#FFFFFF",
+  progressColor: "#0000FFA0",
+  waveColor: "#FFFFFF30",
+  container: '#waveform',
+  scrollParent: true,
+  height: 30,
+  backend: 'MediaElement',
+  plugins: [
+    WaveSurfer.cursor.create({
+      showTime: true,
+      opacity: 1,
+      customShowTimeStyle: {
+        'background-color': '#000',
+        color: '#fff',
+        padding: '2px',
+        'font-size': '10px'
+      }
+    })
+  ]
 });
 
 function clearHTML(htmlElement){
@@ -961,7 +979,12 @@ async function parseFile(file){
     wavesurfer.load(SongAudio);
     wavesurfer.on('waveform-ready', () => {
       console.info(`Finished rendering waveforms. Took ${Math.floor(performance.now() - renderStart)} ms.`);
+      wavesurfer.zoom(window.width/SongAudio.duration);
     });
+    wavesurfer.on('seek', () => {
+      yt = 0;
+      t = SongAudio.currentTime*1000;
+    })
   };
   const audioPATH = d.split('\n').filter(e => e.startsWith('AudioFilename: '))[0].replace('AudioFilename: ', '');
   console.log("Audio file: " + audioPATH);
