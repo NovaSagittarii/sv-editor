@@ -86,6 +86,19 @@ h1 {
   bottom: 0;
 }
 
+/* Background */
+#bg {
+  position: fixed;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  filter: brightness(50%);
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
 /* SideMenu */
 #sidecontainer {
   position: fixed;

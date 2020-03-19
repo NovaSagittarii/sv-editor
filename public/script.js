@@ -406,12 +406,12 @@ Column.prototype.renderSV = function(){
   for(let j = this.notes.length-1; j >= 0; j --){
     const N = this.notes[j];
     //const YRP = Math.round(yo - (N.t - t + yt*mspb) * z);
-    const YRP = Math.round(yo + ( TP[tp].$t + (t-yt*mspb-TP[tp].t)*(TP[tp].i ? 1 : TP[tp].mspb) - N.$t) * z);
+    const YRP = Math.round(yo + ( TP[tp].$t + (t-yt*mspb-TP[tp].t)*(TP[tp].$mspb) - N.$t) * z);
     if(N._t < t) break; // if past the time, then it is "hit"
     if(YRP <= 0) continue;
 
     if(N.ln){
-      const YRP_E = Math.round(yo + ( TP[tp].$t + (t-yt*mspb-TP[tp].t)*(TP[tp].i ? 1 : TP[tp].mspb) - N.$_t) * z);
+      const YRP_E = Math.round(yo + ( TP[tp].$t + (t-yt*mspb-TP[tp].t)*(TP[tp].$mspb) - N.$_t) * z);
       if(YRP_E > height+100) break;
       const YRP_C = (YRP+YRP_E)/2 - this.thd2; // yrender pos center
       const LN_H = YRP - YRP_E - this.th; // long note height
@@ -436,11 +436,24 @@ let sp_t; // scroll pause timeout
 let tile, svTile, lnHead, lnBody, wsTile;
 const I = {};
 
+function getBPMBaseline(){
+    TP.sort((a,b) => a.t-b.t);
+    let $tp = 0;
+    const counter = {};
+    [].concat(...C.map(c => c.type ? [] : c.notes)).map(n => n.t).sort((a,b) => a-b).forEach(T => {
+        while(T > TP[$tp].t) $tp ++;
+        counter[TP[$tp].bpm] = (counter[TP[$tp].bpm] || 0) + 1;
+    });
+    return parseFloat(Object.keys(counter).map(e => [counter[e], e]).sort((a,b) => b[0] - a[0])[0][1]);
+}
 function cacheTP(){ // no idea if this is the most efficient or optimised but it should work. (hopefully)
+  const bpm0 = getBPMBaseline();
   TP.sort((a,b) => a.t-b.t);
   TP[0].$t = 0;
+  // calculate "relative speed" of timingpoints
+  for(let i = 0; i < TP.length; i ++) TP[i].$mspb = (TP[i].i ? 1 : TP[i].mspb) * TP[i].bpm[0] / bpm0;
   // calculate "apparent time" of timingpoints
-  for(let i = 1; i < TP.length; i ++) TP[i].$t = TP[i-1].$t + (TP[i].t - TP[i-1].t) * (TP[i-1].i ? 1 : TP[i-1].mspb);
+  for(let i = 1; i < TP.length; i ++) TP[i].$t = TP[i-1].$t + (TP[i].t - TP[i-1].t) * TP[i-1].$mspb;
   // calculate "apparent time" of notes
   let i;
   C.filter(c => !c.type).forEach(c => {
@@ -451,7 +464,7 @@ function cacheTP(){ // no idea if this is the most efficient or optimised but it
       while(N._t < TP[i].t){
         i --;
       }
-      N.$_t = TP[i].$t + (N._t - TP[i].t) * (TP[i].i ? 1 : TP[i].mspb);
+      N.$_t = TP[i].$t + (N._t - TP[i].t) * TP[i].$mspb;
     }
 
     c.notes.sort((a,b) => a.t-b.t);
@@ -461,7 +474,7 @@ function cacheTP(){ // no idea if this is the most efficient or optimised but it
       while(N.t < TP[i].t && i){
         i --;
       }
-      N.$t = TP[i].$t + (N.t - TP[i].t) * (TP[i].i ? 1 : TP[i].mspb);
+      N.$t = TP[i].$t + (N.t - TP[i].t) * TP[i].$mspb;
     }
   });
 }
@@ -476,9 +489,9 @@ function updateLineBuffers(){
   llb = (1863/mspb*zR*d>>5);// *14 * 414
 }
 function updateTPInfo(){
+  bpm = TP[tp].bpm[0];
+  mspb = 60000/TP[tp].bpm[0];
   if(TP[tp].i){
-    bpm = TP[tp].bpm[0];
-    mspb = TP[tp].mspb;
     to = TP[tp].t;
     updateLineBuffers();
   }
@@ -601,7 +614,7 @@ function draw() {
       text("tpmax="+TP.length, RB_C+100, 490);*/
       text("D :\nZ :\nbpm :\n|\nsv :\ntpid :\ntpmax :\nNSl :", RB_C+285, 490);
       textAlign(LEFT, CENTER);
-      text(`1/${d}\n${zR}\n${bpm.toFixed(2)} bpm\n${TP[tp].i ? "" : ((bpm * TP[tp].mspb).toFixed(2) + " bpm [a]")}\n${(TP[tp].i ? 1 : TP[tp].mspb).toFixed(2) + "x"}\n${tp}\n${TP.length-1}\n${NSl}`, RB_C+290, 490);
+      text(`1/${d}\n${zR}\n${bpm.toFixed(2)} bpm\n${TP[tp].i ? "" : ((bpm * TP[tp].mspb).toFixed(2) + " bpm [a]")}\n${(TP[tp].$mspb ? TP[tp].$mspb.toFixed(2) : "?.??") + "x"}\n${tp}\n${TP.length-1}\n${NSl}`, RB_C+290, 490);
       text(Math.floor(t-yt*mspb), RB_C+215, yo);
       pop();
 
@@ -701,6 +714,7 @@ function moveSongPointer(scrollDirection, measureIntervalOverride){
       t = SongAudio.currentTime*1000;
     }
   }
+  bpm = TP[tp].bpm[0];
 }
 function keyPressed(){
   if(state !== 3) return;
@@ -988,6 +1002,15 @@ async function parseFile(file){
   };
   const audioPATH = d.split('\n').filter(e => e.startsWith('AudioFilename: '))[0].replace('AudioFilename: ', '');
   console.log("Audio file: " + audioPATH);
+  try {
+    const bgPATH = mapdata.header.split('\n[').filter(e => e.startsWith('Events]\n'))[0].split('\n').filter(e => e.startsWith('0,0,'))[0].replace('0,0,"', '').replace('",0,0', '');
+    console.log(bgPATH);
+    if(files[bgPATH]){
+      const divBG = document.getElementById('bg');
+      const bgURL = URL.createObjectURL(files[bgPATH]);
+      divBG.style.backgroundImage = `url("${bgURL}")`;
+    }
+  }catch(error){ console.info("Cannot find map background"); console.error(error); }
   parse.readAsDataURL(files[audioPATH].slice(0));
 }
 
