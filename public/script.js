@@ -441,7 +441,7 @@ function getBPMBaseline(){
     let $tp = 0;
     const counter = {};
     [].concat(...C.map(c => c.type ? [] : c.notes)).map(n => n.t).sort((a,b) => a-b).forEach(T => {
-        while(T > TP[$tp].t) $tp ++;
+        while($tp < TP.length-1 && T > TP[$tp].t) $tp ++;
         counter[TP[$tp].bpm] = (counter[TP[$tp].bpm] || 0) + 1;
     });
     return parseFloat(Object.keys(counter).map(e => [counter[e], e]).sort((a,b) => b[0] - a[0])[0][1]);
@@ -461,7 +461,7 @@ function cacheTP(){ // no idea if this is the most efficient or optimised but it
     i = TP.length-1;
     for(let n = c.notes.length-1; n >= 0; n --){
       const N = c.notes[n];
-      while(N._t < TP[i].t){
+      while(i && N._t < TP[i].t){
         i --;
       }
       N.$_t = TP[i].$t + (N._t - TP[i].t) * TP[i].$mspb;
@@ -471,7 +471,7 @@ function cacheTP(){ // no idea if this is the most efficient or optimised but it
     i = TP.length-1;
     for(let n = c.notes.length-1; n >= 0; n --){
       const N = c.notes[n];
-      while(N.t < TP[i].t && i){
+      while(i && N.t < TP[i].t && i){
         i --;
       }
       N.$t = TP[i].$t + (N.t - TP[i].t) * TP[i].$mspb;
