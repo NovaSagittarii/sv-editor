@@ -451,9 +451,9 @@ function cacheTP(){ // no idea if this is the most efficient or optimised but it
   TP.sort((a,b) => a.t-b.t);
   TP[0].$t = 0;
   // calculate "relative speed" of timingpoints
-  for(let i = 0; i < TP.length; i ++) TP[i].$mspb = (TP[i].i ? 1 : TP[i].mspb) * TP[i].bpm[0] / bpm0;
+  for(let i = 0; i < TP.length; i ++) TP[i].$mspb = Math.min((TP[i].i ? 1 : TP[i].mspb) * TP[i].bpm[0] / bpm0, 1e6);
   // calculate "apparent time" of timingpoints
-  for(let i = 1; i < TP.length; i ++) TP[i].$t = TP[i-1].$t + (TP[i].t - TP[i-1].t) * TP[i-1].$mspb;
+  for(let i = 1; i < TP.length; i ++) TP[i].$t = TP[i-1].$t + (TP[i].t - TP[i-1].t) * Math.min(TP[i-1].$mspb, 1e6);
   // calculate "apparent time" of notes
   let i;
   C.filter(c => !c.type).forEach(c => {
@@ -875,7 +875,7 @@ folder.addEventListener('change', e => {
         ZipObject.async('blob').then(data => {
           FileArray.push(new File([data], ZipObject.name));
           addFile(FileArray[FileArray.length - 1]);
-          toggleUploadText.innerHTML = `Reading... ${l-k}/${l} (${((l-k)/l*100).toFixed(2)}%)`
+          toggleUploadText.innerHTML = `Reading... ${l-k+1}/${l+1} (${((l-k+1)/(l+1)*100).toFixed(2)}%)`
           console.log(`${k}. Read ${ZipObject.name} from ${ff.name}`);
           if(!(k--)){
             listFiles(FileArray);
