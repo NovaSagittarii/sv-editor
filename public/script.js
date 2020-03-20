@@ -18,9 +18,13 @@ let mspb;       // milliseconds per beat
 let bpm;
 let live_sv;
 
-let SNAPPING_MODE = "round";
-let INVERTED_SCROLL = false;
-const ENABLE_PNOTES = true;
+const SETTINGS = {
+  SNAPPING_MODE: "round",
+  INVERTED_SCROLL: false,
+  SHOW_TIMINGPOINTS: true,
+  SHOW_FRAMERATE: true,
+  ENABLE_PNOTES: true,
+}
 
 const MODE_NAMES = ["SELECT", "NOTE", "LNOTE"];
 const MODE_SELECT = 0, MODE_PLACE_NOTE = 1, MODE_PLACE_LONG_NOTE = 2;
@@ -76,8 +80,10 @@ const ColumnNote = {
   "8": [0, 1, 1, 0, 0, 1, 1, 0],
   "9": [0, 1, 1, 0, 2, 0, 1, 1, 0]
 };
+let FRV = 0; // frameRate value
+const FRB = [...new Array(100)].map(e => 0); // frameRate buffer
 const divisors = Object.keys(colors).map(e => parseInt(e));
-const snap = (ms) => (Math[SNAPPING_MODE](( (ms-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
+const snap = (ms) => (Math[SETTINGS.SNAPPING_MODE](( (ms-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
 const TimingPoint = function(to, mspb, m, ss, si, v, i, k){
   this.t = to;
   this.mspb = mspb > 0 ? mspb : -100/mspb
@@ -106,7 +112,7 @@ const Note = function(x, y, t, type, hs, et){
   this.t = t;
   this.ln = type > 100; // 1 - note, 128 - long_note
   this.hs = hs || 0;
-  this._t = et || t;
+  this._t = this.ln && et || t;
   this._id = (_nid ++).toString(36);
 };
 Note.prototype.export = function(mode){
@@ -172,7 +178,6 @@ Column.prototype.draw = function() {
 Column.prototype.drawNotes = function() {
   noStroke();
   fill(0);
-  let LXRP, LYRP, LXRP2, LYRP2;
   for(let j = this.notes.length-1; j >= 0; j --){
     const N = this.notes[j];
     const YRP = Math.round(yo - (N.t - t + yt*mspb) * z);
@@ -198,7 +203,7 @@ Column.prototype.drawNotes = function() {
       }
       if(mr == 1 && mouseX!==mpx && mouseY!==mpy){ // when selected note gets released (assuming it got dragged)
         if(N.ln && sN[3]){ // modify LN-end
-          N._t = ENABLE_PNOTES ? snap(mouseMS) : Math.max(N.t, snap(mouseMS));
+          N._t = SETTINGS.ENABLE_PNOTES ? snap(mouseMS) : Math.max(N.t, snap(mouseMS));
           sN[3] = false;
         }else{ // shift selection
           const relativeShift = snap(mouseMS-mpMS + N.t) - N.t;
@@ -260,26 +265,6 @@ Column.prototype.drawNotes = function() {
       stroke(N.i ? "#FF0000" : "#00FF00");
       strokeWeight(1);
       line(LB_C + (!N.i*15), YRP, RB_C, YRP);
-      if(!N.i){
-        let XRP = Math.round(RB_C+70 + (N.mspb-1)*15);
-        push();
-        stroke((N.mspb<1||N.mspb>=4) ? 255 : 0, N.mspb<0.7 ? 255-1.4*(0.7-N.mspb)*255 : 255, N.mspb>1?100*N.mspb:0);
-        //ellipse(XRP, YRP, 2, 2);
-        strokeWeight(1);
-        line(XRP, YRP, XRP, LYRP||(YRP-30));
-        line(XRP, LYRP, LXRP, LYRP);
-        stroke(255);
-        if(j % 2 && Math.abs(XRP-LXRP2) < 5){
-          const XPOS = Math.floor((XRP*(YRP-LYRP)+LXRP*(LYRP-LYRP2))/(YRP-LYRP2));
-          drawingContext.setLineDash([2, 2]);
-          line(XPOS, YRP, XPOS, LYRP2);
-        }
-        pop();
-        LXRP2 = LXRP;
-        LYRP2 = LYRP;
-        LXRP = XRP;
-        LYRP = YRP;
-      }
       if(sel) line(LB_C + (!N.i*15), YRP+1, RB_C, YRP+1);
       /*stroke(255, 100);
       fill(0);
@@ -359,13 +344,13 @@ Column.prototype.checkPlacement = function(){
     strokeWeight(2);
     //fill(0, 0, 0, 50 + Math.cos(frameCount/8)*20);
     //rect(this.x, Math.floor((mouseY+7.5) /mspb/z*d) *mspb*z/d + (yo%(mspb*z/d)) - 7.5, this.w, 15);
-    //image(tile, this.x, Math[SNAPPING_MODE]((mouseY-fy) / (mspb*z/d)) * (mspb/d*z) + fy - this.thd2, this.w, this.th);
+    //image(tile, this.x, Math[SETTINGS.SNAPPING_MODE]((mouseY-fy) / (mspb*z/d)) * (mspb/d*z) + fy - this.thd2, this.w, this.th);
 
     text(~~mouseMS, mouseX, mouseY-15);
-    //rect(this.x, Math[SNAPPING_MODE]((mouseY-fy) / (mspb*z/d)) * (mspb/d*z) + fy - this.thd2, this.w, this.th);
+    //rect(this.x, Math[SETTINGS.SNAPPING_MODE]((mouseY-fy) / (mspb*z/d)) * (mspb/d*z) + fy - this.thd2, this.w, this.th);
 
     if(M === MODE_PLACE_NOTE && !keys[16] && mp == 1){ // SHIFT(16) held for LN
-      const t = (Math[SNAPPING_MODE](( (mouseMS-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
+      const t = (Math[SETTINGS.SNAPPING_MODE](( (mouseMS-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
       if(this.type){
         const lTP = TP.filter(e => (e.t <= mouseMS)).reverse()[0];
         const nTP = new TimingPoint(t, lTP.i ? 1 : lTP.mspb, lTP.m, lTP.ss, lTP.si, lTP.v, false, lTP.k);
@@ -379,8 +364,8 @@ Column.prototype.checkPlacement = function(){
       mp = false;
     }
     if((M === MODE_PLACE_LONG_NOTE || (M === MODE_PLACE_NOTE && keys[16])) && mr == 1 && !this.type){
-      const t = (Math[SNAPPING_MODE](( (mpMS-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
-      const t_e = (Math[SNAPPING_MODE](( (mouseMS-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
+      const t = (Math[SETTINGS.SNAPPING_MODE](( (mpMS-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
+      const t_e = (Math[SETTINGS.SNAPPING_MODE](( (mouseMS-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
       console.log(t, t_e);
       this.notes.push(new Note(this.id, null, t, 128, 0, t_e));
       this.notes.sort((a,b) => a.t-b.t);
@@ -548,21 +533,13 @@ function draw() {
     case 1:
       clear();
       fill(255);
-      text("Parsing", width/2, 200);
+      text("Parsing", width/2, height/2);
+      text(("▁▂▃▄▅▆▇█▉▊▋▌▍▎▏▎▍▌▋▊▉█▇▆▅▄▃▂")[frameCount%28], 100, 100);
     case 2:
-      fill(255);
       clear();
-      if(SongAudio){
-        text(`${SongAudio.currentTime.toFixed(1)} / ${SongAudio.duration.toFixed(1)}`, width/2, 200);
-        if(C){
-          state = 3;
-          SongAudio.pause();
-          SongAudio.controls = true;
-          SongAudio.preload = "auto";
-          SongAudio.id = "SongAudio";
-          document.body.append(SongAudio);
-        }
-      }
+      fill(255);
+      text("Parsing", width/2, height/2);
+      text(("▖▙▗▟▝▜▘▛")[frameCount%8], 100, 100);
       break;
     case 3:
       clear();
@@ -583,10 +560,40 @@ function draw() {
       fl = Math.round(-yt + (t-to)/mspb)*d - flb;
       ll = Math.round(-yt + (t-to)/mspb)*d + llb;
 
-      for(let i = 0; i < C.length; i ++) C[i].draw();
-      for(let i = 0; i < C.length; i ++) C[i].drawNotes();
-      for(let i = 0; i < C.length; i ++) C[i].checkPlacement();
+      let lastCol = C.length - (!SETTINGS.SHOW_TIMINGPOINTS)*3;
+      for(let i = 0; i < lastCol; i ++) C[i].draw();
+      for(let i = 0; i < lastCol; i ++) C[i].drawNotes();
+      for(let i = 0; i < lastCol; i ++) C[i].checkPlacement();
       if(live_sv) for(let i = 0; i < C.length-3; i ++) C[i].renderSV();
+      if(SETTINGS.SHOW_TIMINGPOINTS){
+        let LXRP, LYRP, LXRP2, LYRP2;
+        const t_i = (yo - (height+100)) / z - yt*mspb + t;
+        const t_f = yo / z - yt*mspb + t;
+        for(let i = TP.length-1; i >= 0; i --){
+          const N = TP[i];
+          if(N.t > t_f) continue;
+          if(N.t <= t_i) break;
+          const XRP = Math.round(RB_C+70 + (N.mspb-1)*15);
+          const YRP = Math.round(yo - (N.t - t + yt*mspb) * z);
+          push();
+          stroke((N.mspb<1||N.mspb>=4) ? 255 : 0, N.mspb<0.7 ? 255-1.4*(0.7-N.mspb)*255 : 255, N.mspb>1?100*N.mspb:0);
+          //ellipse(XRP, YRP, 2, 2);
+          strokeWeight(1);
+          line(XRP, YRP, XRP, LYRP||(YRP-30));
+          line(XRP, LYRP, LXRP, LYRP);
+          stroke(255);
+          if(i % 2 && Math.abs(XRP-LXRP2) < 1){
+            const XPOS = Math.floor((XRP*(YRP-LYRP)+LXRP*(LYRP-LYRP2))/(YRP-LYRP2));
+            drawingContext.setLineDash([2, 2]);
+            line(XPOS, YRP, XPOS, LYRP2);
+          }
+          pop();
+          LXRP2 = LXRP;
+          LYRP2 = LYRP;
+          LXRP = XRP;
+          LYRP = YRP;
+        }
+      }
       if(sN == null) sN = undefined; // something about transitions
       strokeWeight(4);
       stroke(PSTROKE);
@@ -616,6 +623,13 @@ function draw() {
       textAlign(LEFT, CENTER);
       text(`1/${d}\n${zR}\n${bpm.toFixed(2)} bpm\n${TP[tp].i ? "" : ((bpm * TP[tp].mspb).toFixed(2) + " bpm [a]")}\n${(TP[tp].$mspb ? TP[tp].$mspb.toFixed(2) : "?.??") + "x"}\n${tp}\n${TP.length-1}\n${NSl}`, RB_C+290, 490);
       text(Math.floor(t-yt*mspb), RB_C+215, yo);
+      if(SETTINGS.SHOW_FRAMERATE){
+        fill(255);
+        FRV += ~~frameRate();
+        FRV -= FRB.splice(0, 1);
+        FRB.push(~~frameRate());
+        text((FRV/100).toFixed(1), width-30, height-10);
+      }
       pop();
 
       /*push();
@@ -667,7 +681,7 @@ function mouseReleased(event){
 function mouseWheel(event) {
   if(state !== 3) return;
   if(sN && sN[0] instanceof TimingPoint && sN[3]){ // SV editing
-    sN[0].mspb += (event.delta < 0 == INVERTED_SCROLL ? -1 : 1) / 10 * (keys[16]?10:1) / (keys[17]?10:1);
+    sN[0].mspb += (event.delta < 0 == SETTINGS.INVERTED_SCROLL ? -1 : 1) / 10 * (keys[16]?10:1) / (keys[17]?10:1);
     return false;
   }else if(keys[17]){
     const temp_d = d;
@@ -677,8 +691,8 @@ function mouseWheel(event) {
     return false;
   }else if(keys[18]){
     if(sN){ // 1ms ALT shifting on immediately focused note
-      sN[0].t += ((event.delta < 0 == INVERTED_SCROLL) ? 1 : -1) * (keys[16] ? 10 : 1);
-      sN[0]._t += ((event.delta < 0 == INVERTED_SCROLL) ? 1 : -1) * (keys[16] ? 10 : 1);
+      sN[0].t += ((event.delta < 0 == SETTINGS.INVERTED_SCROLL) ? 1 : -1) * (keys[16] ? 10 : 1);
+      sN[0]._t += ((event.delta < 0 == SETTINGS.INVERTED_SCROLL) ? 1 : -1) * (keys[16] ? 10 : 1);
     }
     return false;
   }else{
@@ -693,7 +707,7 @@ function mouseWheel(event) {
         SongAudio.play();
       }, 150);
     }
-    moveSongPointer(event.delta < 0 == INVERTED_SCROLL, keys[16]);
+    moveSongPointer(event.delta < 0 == SETTINGS.INVERTED_SCROLL, keys[16]);
   }
 }
 function moveSongPointer(scrollDirection, measureIntervalOverride){
@@ -986,14 +1000,20 @@ async function parseFile(file){
       t = to = TP[0].t;
       SongAudio.currentTime = t/1000;
       updateTPInfo();
-      SongAudio.play();
-      state = 2;
+      state = 1;
     };
     const renderStart = performance.now();
     wavesurfer.load(SongAudio);
     wavesurfer.on('waveform-ready', () => {
       console.info(`Finished rendering waveforms. Took ${Math.floor(performance.now() - renderStart)} ms.`);
       wavesurfer.zoom(window.width/SongAudio.duration);
+      extras.view.exec();
+      state = 3;
+      SongAudio.pause();
+      SongAudio.controls = true;
+      SongAudio.preload = "auto";
+      SongAudio.id = "SongAudio";
+      document.body.append(SongAudio);
     });
     wavesurfer.on('seek', () => {
       yt = 0;
@@ -1012,6 +1032,7 @@ async function parseFile(file){
     }
   }catch(error){ console.info("Cannot find map background"); console.error(error); }
   parse.readAsDataURL(files[audioPATH].slice(0));
+  document.title = "editing | " + mapdata.filename;
 }
 
 /* toggling the webkitdirectory input */
