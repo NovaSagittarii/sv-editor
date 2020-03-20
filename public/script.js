@@ -22,7 +22,6 @@ const SETTINGS = {
   SNAPPING_MODE: "round",
   INVERTED_SCROLL: false,
   SHOW_TIMINGPOINTS: true,
-  SHOW_FRAMERATE: true,
   ENABLE_PNOTES: true,
 }
 
@@ -80,8 +79,6 @@ const ColumnNote = {
   "8": [0, 1, 1, 0, 0, 1, 1, 0],
   "9": [0, 1, 1, 0, 2, 0, 1, 1, 0]
 };
-let FRV = 0; // frameRate value
-const FRB = [...new Array(100)].map(e => 0); // frameRate buffer
 const divisors = Object.keys(colors).map(e => parseInt(e));
 const snap = (ms) => (Math[SETTINGS.SNAPPING_MODE](( (ms-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
 const TimingPoint = function(to, mspb, m, ss, si, v, i, k){
@@ -573,7 +570,7 @@ function draw() {
           const N = TP[i];
           if(N.t > t_f) continue;
           if(N.t <= t_i) break;
-          const XRP = Math.round(RB_C+70 + (N.mspb-1)*15);
+          const XRP = Math.round(RB_C+70 + (Math.min(N.mspb,10)-1)*15);
           const YRP = Math.round(yo - (N.t - t + yt*mspb) * z);
           push();
           stroke((N.mspb<1||N.mspb>=4) ? 255 : 0, N.mspb<0.7 ? 255-1.4*(0.7-N.mspb)*255 : 255, N.mspb>1?100*N.mspb:0);
@@ -623,13 +620,6 @@ function draw() {
       textAlign(LEFT, CENTER);
       text(`1/${d}\n${zR}\n${bpm.toFixed(2)} bpm\n${TP[tp].i ? "" : ((bpm * TP[tp].mspb).toFixed(2) + " bpm [a]")}\n${(TP[tp].$mspb ? TP[tp].$mspb.toFixed(2) : "?.??") + "x"}\n${tp}\n${TP.length-1}\n${NSl}`, RB_C+290, 490);
       text(Math.floor(t-yt*mspb), RB_C+215, yo);
-      if(SETTINGS.SHOW_FRAMERATE){
-        fill(255);
-        FRV += ~~frameRate();
-        FRV -= FRB.splice(0, 1);
-        FRB.push(~~frameRate());
-        text((FRV/100).toFixed(1), width-30, height-10);
-      }
       pop();
 
       /*push();
