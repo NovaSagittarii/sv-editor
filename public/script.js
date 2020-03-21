@@ -697,6 +697,7 @@ function mouseWheel(event) {
         SongAudio.play();
       }, 150);
     }
+    console.log(event.delta < 0 == SETTINGS.INVERTED_SCROLL, keys[16]);
     moveSongPointer(event.delta < 0 == SETTINGS.INVERTED_SCROLL, keys[16]);
   }
 }
@@ -818,9 +819,13 @@ function keyReleased(){
   delete keys[keyCode];
 }
 function snapTime(){
-  const msOffset = (t-to) % (mspb/d);
+  /*const msOffset = (t-to) % (mspb/d);
   t -= msOffset;
   yt = -msOffset/mspb;
+  return msOffset;*/
+  const msOffset = (t+yt*mspb-to) % (mspb/d);
+  t -= Math.abs(msOffset) < Math.abs(-msOffset + mspb/d) ? msOffset : (mspb/d - msOffset);
+  yt = 0;
 }
 
 const files = [];
