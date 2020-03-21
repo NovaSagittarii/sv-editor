@@ -697,7 +697,6 @@ function mouseWheel(event) {
         SongAudio.play();
       }, 150);
     }
-    console.log(event.delta < 0 == SETTINGS.INVERTED_SCROLL, keys[16]);
     moveSongPointer(event.delta < 0 == SETTINGS.INVERTED_SCROLL, keys[16]);
   }
 }
