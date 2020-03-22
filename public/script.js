@@ -139,8 +139,8 @@ const Column = function(x, w, t){
   this.x2 = x + 800;
   this.w = w;
   this.w2 = w/2;
-  this.RB = x - w/2;
-  this.LB = x + w/2;
+  this.LB = x - w/2;
+  this.RB = x + w/2;
   this.type = t;
   this.notes = [];
   this.id = C.length;
@@ -160,17 +160,6 @@ Column.prototype.draw = function() {
   stroke(LINE_COLOR);
   strokeWeight(1);
   rect(this.x, 300, this.w, height*2);
-  for(let j = fl; j < Math.min(fl+200+zR, ll); j ++){
-    const YRP = yo-((to-t)*d+(j+yt*d)*mspb)/d*z; // Y RENDER POSITION
-    if(YRP > height) continue;
-    if(YRP <= 0){
-      fy = YRP;// + mspb/d*z;
-      break;
-    }
-    strokeWeight(Math.abs(j) % d ? 1 : 3);
-    stroke(colors[d][Math.abs(j) % d]);
-    line(this.LB, YRP, this.RB, YRP);
-  }
 };
 Column.prototype.drawNotes = function() {
   noStroke();
@@ -409,6 +398,19 @@ Column.prototype.renderSV = function(){
     }
   }
 };
+function renderColumnLines(x1, x2){
+  for(let j = fl; j < Math.min(fl+200+zR, ll); j ++){
+    const YRP = yo-((to-t)*d+(j+yt*d)*mspb)/d*z; // Y RENDER POSITION
+    if(YRP > height) continue;
+    if(YRP <= 0){
+      fy = YRP;// + mspb/d*z;
+      break;
+    }
+    strokeWeight(Math.abs(j) % d ? 1 : 3);
+    stroke(colors[d][Math.abs(j) % d]);
+    line(x1, YRP, x2, YRP);
+  }
+}
 
 let C, TP = [], tp;
 let state = 0;
@@ -542,8 +544,6 @@ function draw() {
       clear();
       if(yt){ // immediately update SongAudio.currentTime to update the waveform display
         SongAudio.currentTime = (t - yt*mspb)/1000;
-        t -= yt*mspb;
-        yt = 0;
       }
       mouseMS = (yo - mouseY)/z - yt*mspb + t;
       while(tp && t-yt*mspb < TP[tp].t){
@@ -559,6 +559,7 @@ function draw() {
 
       let lastCol = C.length - (!SETTINGS.SHOW_TIMINGPOINTS)*3;
       for(let i = 0; i < lastCol; i ++) C[i].draw();
+      renderColumnLines(C[0].LB, C[lastCol-1].RB);
       for(let i = 0; i < lastCol; i ++) C[i].drawNotes();
       for(let i = 0; i < lastCol; i ++) C[i].checkPlacement();
       if(live_sv) for(let i = 0; i < C.length-3; i ++) C[i].renderSV();
@@ -712,7 +713,7 @@ function moveSongPointer(scrollDirection, measureIntervalOverride){
     }
   }else{
     if(SongAudio.paused && !sp_t){
-      yt = Math.round(yt * _d) / _d + 1/_d;
+      yt = Math.floor(yt * _d) / _d + 1/_d;
     }else{
       SongAudio.currentTime -= mspb/_d/1000;
       t = SongAudio.currentTime*1000;
@@ -738,7 +739,7 @@ function keyPressed(){
     case 33: moveSongPointer(true, true); break; // PAGE UP (one measure forward)
     case 34: moveSongPointer(false, true); break; // PAGE DOWN (one measure backwards)
     case 39: yt = Math.ceil(yt * d) / d - 1/d; SongAudio.currentTime -= mspb/d/1000; break; // LEFT
-    case 37: yt = Math.round(yt * d) / d + 1/d; SongAudio.currentTime += mspb/d/1000; break; // RIGHT
+    case 37: yt = Math.floor(yt * d) / d + 1/d; SongAudio.currentTime += mspb/d/1000; break; // RIGHT
     case 38: d = divisors[divisors.indexOf(d)+1] || d; break; // UP
     case 40: d = divisors[divisors.indexOf(d)-1] || d; break; // DOWN
     case 46: // Del ete
@@ -822,7 +823,8 @@ function snapTime(){
   t -= msOffset;
   yt = -msOffset/mspb;
   return msOffset;*/
-  const msOffset = (t+yt*mspb-to) % (mspb/d);
+  t -= yt*mspb;
+  const msOffset = (t-to) % (mspb/d);
   t -= Math.abs(msOffset) < Math.abs(-msOffset + mspb/d) ? msOffset : (mspb/d - msOffset);
   yt = 0;
 }
