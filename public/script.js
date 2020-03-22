@@ -341,7 +341,7 @@ Column.prototype.checkPlacement = function(){
         const lTP = TP.filter(e => (e.t <= mouseMS)).reverse()[0];
         const nTP = new TimingPoint(t, lTP.i ? 1 : lTP.mspb, lTP.m, lTP.ss, lTP.si, lTP.v, false, lTP.k);
         TP.push(nTP);
-        TP.sort((a,b) => a.t-b.t);
+        orderTP()
         this.notes.push(nTP);
       }else{
         this.notes.push(new Note(this.id, null, t, 0));
@@ -421,7 +421,7 @@ let tile, svTile, lnHead, lnBody, wsTile;
 const I = {};
 
 function getBPMBaseline(){
-    TP.sort((a,b) => a.t-b.t);
+    orderTP()
     let $tp = 0;
     const counter = {};
     [].concat(...C.map(c => c.type ? [] : c.notes)).map(n => n.t).sort((a,b) => a-b).forEach(T => {
@@ -432,7 +432,7 @@ function getBPMBaseline(){
 }
 function cacheTP(){ // no idea if this is the most efficient or optimised but it should work. (hopefully)
   const bpm0 = getBPMBaseline();
-  TP.sort((a,b) => a.t-b.t);
+  orderTP()
   TP[0].$t = 0;
   // calculate "relative speed" of timingpoints
   for(let i = 0; i < TP.length; i ++) TP[i].$mspb = Math.min((TP[i].i ? 1 : TP[i].mspb) * TP[i].bpm[0] / bpm0, 1e6);
@@ -461,6 +461,9 @@ function cacheTP(){ // no idea if this is the most efficient or optimised but it
       N.$t = TP[i].$t + (N.t - TP[i].t) * TP[i].$mspb;
     }
   });
+}
+function orderTP(){
+  TP.sort((a,b) => a.t-b.t || b.i-a.i);
 }
 function calculateBoundaries(){
   LB_C = C[0].x - C[0].w/2 - 15;
@@ -780,7 +783,7 @@ function keyPressed(){
           c.notes.push(...N);
           if(c.type){
             TP.push(...N);
-            TP.sort((a,b) => a.t-b.t);
+            orderTP()
           }
           c.notes.sort((a,b) => a.t-b.t);
         });
@@ -1063,7 +1066,7 @@ const extras = {
   "SVprune": {
     desc: "Selects all TimingPoint(s) that are insignificant SV-wise and deletes them. (threshold 0.01ms)",
     exec: function(){
-      TP.sort((a,b) => a.t-b.t);
+      orderTP()
       Object.keys(NS).map(k => delete NS[k]);
       NSl = 0;
       _t = TP[0].t;
