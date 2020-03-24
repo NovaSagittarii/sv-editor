@@ -104,13 +104,14 @@ TimingPoint.prototype.export = function(mode){
 TimingPoint.prototype.withinTS = function(){
   return !isNaN(TSE) && this.t > TSS && this.t < TSE;
 };
-const Note = function(x, y, t, type, hs, et){
+const Note = function(x, y, t, type, hs, et, etLN){
   this.x = x;
   this.t = t;
   this.ln = type > 100; // 1 - note, 128 - long_note
   this.hs = hs || 0;
   this._t = this.ln && et || t;
   this._id = (_nid ++).toString(36);
+  this.et = this.ln ? etLN : et;
 };
 Note.prototype.export = function(mode){
   const KC = C.length-3;
@@ -846,9 +847,9 @@ File.prototype.slice = Blob.prototype.slice;
 var SongAudio;
 const wavesurfer = WaveSurfer.create({
   backgroundColor: "#FFFFFF30",
-  cursorColor: "#FFFFFF",
-  progressColor: "#0000FFA0",
-  waveColor: "#FFFFFF30",
+  cursorColor: "#000",
+  progressColor: "#AAF",
+  waveColor: "#FFF",
   container: '#waveform',
   scrollParent: true,
   height: 30,
@@ -1062,6 +1063,39 @@ function download(data, fileName, fileOptions) {
   URL.revokeObjectURL(_file);
 }
 
+function linearEase(T1, T2, D){
+  const B = T1.i*100 || T1.mspb;
+  const K = T2.i*100 || T2.mspb - B;
+  const T = (T2.t - T1.t)/D;
+  const p = [];
+  for(let i = 1; i <= D; i ++) p.push(K*i/D+B);
+  let v = p[0];
+  for(let i = 1; i < p.length; i ++){
+    const nTP = new TimingPoint(i*T+T1.t, p[i-1], T1.m, T1.ss, T1.si, T1.v, false, T1.k);
+    TP.push(nTP);
+    C[6].notes.push(nTP);
+    v = p[i];
+  }
+  orderTP();
+  C[6].notes.sort((a,b) => a.t-b.t);
+}
+function sineEase(T1, T2, D){
+  const B = T1.i*100 || T1.mspb;
+  const K = T2.i*100 || T2.mspb - B;
+  const T = (T2.t - T1.t)/D;
+  const p = [];
+  for(let i = 1; i <= D; i ++) p.push(K*((Math.cos((i/D-1)*Math.PI)+1)/2)+B);
+  let v = p[0];
+  for(let i = 1; i < p.length; i ++){
+    const nTP = new TimingPoint(i*T+T1.t, p[i-1], T1.m, T1.ss, T1.si, T1.v, false, T1.k);
+    TP.push(nTP);
+    C[6].notes.push(nTP);
+    v = p[i];
+  }
+  orderTP();
+  C[6].notes.sort((a,b) => a.t-b.t);
+}
+
 const extras = {
   "SVprune": {
     desc: "Selects all TimingPoint(s) that are insignificant SV-wise and deletes them. (threshold 0.01ms)",
@@ -1117,6 +1151,24 @@ const extras = {
     desc: "Exports edited file as .osu file (starts download)",
     exec: function(){
       download([`${mapdata.header}[TimingPoints]\n${TP.map(p => `${Math.round(p.t)},${p.i ? p.mspb : -1/p.mspb*100},${p.m},${p.ss},${p.si},${p.v},${p.i+0},${p.k+0}`).join('\n')}\n\n\n[HitObjects]\n${C.slice(0, C.length-3).map(c => c.notes).reduce((a,b) => a.concat(b)).sort((a,b) => a.t-b.t).map(n => n.export('.osu')).join('\n')}`], mapdata.filename, {type: 'text/plain'});
+    }
+  },
+  "L-EAS": {
+    desc: "Linear easing, divisors are based on the current set divisor, it is recommended that both TimingPoints are on divisor lines.\nSelection of 2 TimingPoints only! Hold CTRL while clicking!",
+    exec: function(){
+      if(NSl != 2) return;
+      const STP = Object.values(NS); // selected timingpoints
+      if(STP.filter(tp => tp.m === undefined).length) return;
+      linearEase(...STP, Math.round(Math.abs(STP[0].t-STP[1].t)/(mspb/d)*256)/256);
+    }
+  },
+  "S-EAS": {
+    desc: "Sine easing, divisors are based on the current set divisor, it is recommended that both TimingPoints are on divisor lines.\nSelection of 2 TimingPoints only! Hold CTRL while clicking!",
+    exec: function(){
+      if(NSl != 2) return;
+      const STP = Object.values(NS); // selected timingpoints
+      if(STP.filter(tp => tp.m === undefined).length) return;
+      sineEase(...STP, Math.round(Math.abs(STP[0].t-STP[1].t)/(mspb/d)*256)/256);
     }
   },
   "view": {
