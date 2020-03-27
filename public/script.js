@@ -1,8 +1,8 @@
 // payloads https://drive.google.com/open?id=1BQy025dJHiwYGA-YEaduG7mjwIfmWAta
 
 let y = 0;      // Y Pos
-let z = .5;   // ZOOM
-let zR =32;     // ZOOM RECIPROCAL
+let z = 16/20;   // ZOOM
+let zR =20;     // ZOOM RECIPROCAL
 let t = 0;      // time [ms of song]
 let d = 2;      // divisor
 let to = 0;     // start time offset (tp.t)
@@ -17,6 +17,7 @@ let llb = 0;    // last line buffer
 let mspb;       // milliseconds per beat
 let bpm;
 let live_sv;
+let co = 0; // correctional offset, positive - audio is ahead (so push it back relative to "t"), audio is behind (push it forwards relative to "t")
 
 const SETTINGS = {
   SNAPPING_MODE: "round",
@@ -104,20 +105,20 @@ TimingPoint.prototype.export = function(mode){
 TimingPoint.prototype.withinTS = function(){
   return !isNaN(TSE) && this.t > TSS && this.t < TSE;
 };
-const Note = function(x, y, t, type, hs, et, etLN){
+const Note = function(x, y, t, type, hs, _t, sfx){
   this.x = x;
   this.t = t;
   this.ln = type > 100; // 1 - note, 128 - long_note
   this.hs = hs || 0;
-  this._t = this.ln && et || t;
+  this._t = this.ln && _t || t;
   this._id = (_nid ++).toString(36);
-  this.et = this.ln ? etLN : et;
+  this.sfx = sfx;
 };
 Note.prototype.export = function(mode){
   const KC = C.length-3;
   switch(mode){
     case ".osu":
-      return `${Math.floor((512/KC)*(0.5+this.x))},192,${Math.floor(this.t)},${this.ln?128:1},${this.hs},${this.ln?Math.floor(this._t):0}:0:0:0:0:`;
+      return `${Math.floor((512/KC)*(0.5+this.x))},192,${Math.floor(this.t)},${this.ln?128:1},${this.hs},${this.ln?Math.floor(this._t):0}:${this.sfx.join(':')}`;
       break;
   }
 };
@@ -135,6 +136,14 @@ Note.prototype.deselect = TimingPoint.prototype.deselect = function(){
 Note.prototype.selected = TimingPoint.prototype.selected = function(){ // if in NoteSelection
   return !!NS[this._id];
 };
+Note.fromString = function(datastring, mode){
+  switch(mode){
+    case ".osu":
+      const ndat = datastring.split(':');
+      return new Note(...(ndat.splice(0, 1)[0].split(',').map(n => parseInt(n))), ndat);
+      break;
+  }
+}
 const Column = function(x, w, t){
   this.x = x;
   this.x2 = x + 800;
@@ -415,7 +424,7 @@ function renderColumnLines(x1, x2){
 
 let C, TP = [], tp;
 let state = 0;
-let LB_C, RB_C, ZERO_CP, ZERO_W;
+let LB_C, RB_C, LB_L, RB_L, ZERO_CP, ZERO_W;
 
 let sp_t; // scroll pause timeout
 let tile, svTile, lnHead, lnBody, wsTile;
@@ -471,6 +480,11 @@ function calculateBoundaries(){
   RB_C = C[C.length-1].x + C[C.length-1].w/2 + 15;
   ZERO_CP = (C[0].x - C[0].w/2 + C[C.length-1].x + C[C.length-1].w/2) / 2;
   ZERO_W = RB_C-LB_C-15;
+  const liveDist = RB_C+205+50 - C[0].LB;
+  const w2 = C[0].w2;
+  C.map(e => e.x2 = e.x + liveDist);
+  LB_L = C[0].x2 - w2;
+  RB_L = C.filter(c => !c.type).reverse()[0].x2 + w2;
 }
 function updateLineBuffers(){
   flb = (155/mspb*zR*d>>3); // *3  * 414 [*2] xd
@@ -522,9 +536,12 @@ function setup() {
   textAlign(CENTER, CENTER);
   textSize(100);
   rectMode(CENTER);
+  drawingContext.imageSmoothingEnabled = false; // noSmooth() doesn't seem to work, and no antialias for the sake of performance (shouldnt matter much anyways)
 }
 function windowResized() {
   resizeCanvas(windowWidth-225, windowHeight-30);
+  yo = windowHeight-30 - 150;
+  wavesurfer.zoom(window.width/SongAudio.duration);
 }
 function draw() {
   switch(state){
@@ -547,7 +564,7 @@ function draw() {
     case 3:
       clear();
       if(yt){ // immediately update SongAudio.currentTime to update the waveform display
-        SongAudio.currentTime = (t - yt*mspb)/1000;
+        SongAudio.currentTime = (t - yt*mspb - co)/1000;
       }
       mouseMS = (yo - mouseY)/z - yt*mspb + t;
       while(tp && t-yt*mspb < TP[tp].t){
@@ -600,7 +617,7 @@ function draw() {
       strokeWeight(4);
       stroke(PSTROKE);
       line(LB_C, yo+1, RB_C, yo+1);
-      line(LB_C+800, yo+1, RB_C+800, yo+1);
+      line(LB_L, yo+1, RB_L, yo+1);
       line(RB_C+55, yo+1, RB_C+205, yo+1);
       strokeWeight(1);
       line(RB_C+70, yo-3, RB_C+70, yo+6);   // 1.00x
@@ -646,7 +663,7 @@ function draw() {
           TSE = Math.max(mouseMS, mpMS);
         }
       }
-      if(SongAudio && !SongAudio.ended && !SongAudio.paused) t = 1000*SongAudio.currentTime || 0;
+      if(SongAudio && !SongAudio.ended && !SongAudio.paused) t = (1000*SongAudio.currentTime+co) || 0;
       mp = mr = false;
       break;
   }
@@ -713,14 +730,14 @@ function moveSongPointer(scrollDirection, measureIntervalOverride){
       yt = Math.ceil(yt * _d) / _d - 1/_d;
     }else{
       SongAudio.currentTime += mspb/_d/1000;
-      t = SongAudio.currentTime*1000;
+      t = SongAudio.currentTime*1000+co;
     }
   }else{
     if(SongAudio.paused && !sp_t){
       yt = Math.floor(yt * _d) / _d + 1/_d;
     }else{
       SongAudio.currentTime -= mspb/_d/1000;
-      t = SongAudio.currentTime*1000;
+      t = SongAudio.currentTime*1000+co;
     }
   }
   bpm = TP[tp].bpm[0];
@@ -733,7 +750,7 @@ function keyPressed(){
     case 32:
       if(SongAudio.paused){
         SongAudio.play();
-        SongAudio.currentTime = (t - yt*mspb)/1000;
+        SongAudio.currentTime = (t - yt*mspb - co)/1000;
         yt = 0;
       }else{
         SongAudio.pause();
@@ -775,7 +792,7 @@ function keyPressed(){
         // console.log(clipboardObjects);
         // continue from there ...
         const clipboardFirst = Math.min(...clipboardObjects.filter(c => c[0]).map(c => c[0].t)); // assuming no one uses a 65000k map xD
-        const currentTime = t-yt*mspb;
+        const currentTime = t-yt*mspb-co;
         const offset = currentTime-clipboardFirst;
         const clipboard_offset = clipboardObjects.map(c => c.length ? c.map(n => {n.t += offset; n._t += offset; return n}) : []);
         // console.log(clipboard_offset);
@@ -867,6 +884,7 @@ const wavesurfer = WaveSurfer.create({
     })
   ]
 });
+const Zip = new JSZip();
 
 function clearHTML(htmlElement){
   while (htmlElement.firstChild) htmlElement.removeChild(htmlElement.firstChild);
@@ -881,7 +899,7 @@ folder.addEventListener('change', e => {
   const ff = FileArray[0]; // first File
   if(FileArray.length == 1 && (ff.name.endsWith('.osz') || ff.name.endsWith('.zip'))){
     disabled.style.display = "block";
-    JSZip.loadAsync(ff).then(zip => {
+    Zip.loadAsync(ff).then(zip => {
       FileArray.splice(0);
       const l = Object.keys(zip.files).length-1;
       let k = l;
@@ -948,16 +966,16 @@ async function parseFile(file){
   mapdata.header = d.split('[TimingPoints]')[0];
   sideMenu.style.transform = "";
 
-  //                                                               ignoring :extras ***
-  const Notes = d.split('\n\n\n')[1].split('\n').slice(1).map(e => e.split(':')[0].split(',').map(n => parseInt(n)));
+  const Notes = d.split('\n\n\n')[1].split('\n').slice(1);
   const TimingPoints = d.split('\n\n').filter(e => e.startsWith('[TimingPoints]'))[0].split('\n').slice(1).map(e => e.split(',').map(n => parseFloat(n) || parseInt(n)));
   const ColumnWidth = 512/Difficulty.CircleSize;
 
   C = [];
   yo = height - 150;
   // Add the columns (which notes will be added to)
-  for(let i = 0; i < Difficulty.CircleSize; i ++) C.push(new Column(30+50+i*70, 70, 0));
-  for(let i = 0; i < 3; i ++) C.push(new Column(30+120+(i+Difficulty.CircleSize)*70, 70, 1));
+  const W = Math.min(Math.floor((width-400)/(3+Difficulty.CircleSize*2)), 70); //55 - normal, 70 - wide
+  for(let i = 0; i < Difficulty.CircleSize; i ++) C.push(new Column(30+50+i*W, W, 0));
+  for(let i = 0; i < 3; i ++) C.push(new Column(30+50+2+(i+Difficulty.CircleSize)*W, W, 1));
   C.map(e => e.calculateTileHeight());
   calculateBoundaries();
 
@@ -972,9 +990,10 @@ async function parseFile(file){
   Notes.forEach(e => {
     /* x,y,time,type,hitSound,endTime:extras */
     try {
-      C[Math.floor(e[0] / ColumnWidth)].notes.push(new Note(...e));
+      const nNote = Note.fromString(e, '.osu');
+      C[Math.floor(nNote.x / ColumnWidth)].notes.push(nNote);
     } catch (error) {
-      console.warn("Invalid note format: ", e);
+      console.warn("Invalid note format:", e, '\n', error);
     }
   });
   C.map(c => c.notes.forEach(n => n.x = c.id));
@@ -1014,10 +1033,11 @@ async function parseFile(file){
       SongAudio.preload = "auto";
       SongAudio.id = "SongAudio";
       document.body.append(SongAudio);
+      co = wavesurfer.backend.ac.baseLatency*1000;
     });
     wavesurfer.on('seek', () => {
       yt = 0;
-      t = SongAudio.currentTime*1000;
+      t = SongAudio.currentTime*1000+co;
     })
   };
   const audioPATH = d.split('\n').filter(e => e.startsWith('AudioFilename: '))[0].replace('AudioFilename: ', '');
@@ -1150,7 +1170,30 @@ const extras = {
   "oEXP": {
     desc: "Exports edited file as .osu file (starts download)",
     exec: function(){
-      download([`${mapdata.header}[TimingPoints]\n${TP.map(p => `${Math.round(p.t)},${p.i ? p.mspb : -1/p.mspb*100},${p.m},${p.ss},${p.si},${p.v},${p.i+0},${p.k+0}`).join('\n')}\n\n\n[HitObjects]\n${C.slice(0, C.length-3).map(c => c.notes).reduce((a,b) => a.concat(b)).sort((a,b) => a.t-b.t).map(n => n.export('.osu')).join('\n')}`], mapdata.filename, {type: 'text/plain'});
+      orderTP();
+      download([`${mapdata.header}[TimingPoints]\n${TP.map(p => `${Math.round(p.t)},${p.i ? p.mspb : -1/p.mspb*100},${p.m},${p.ss},${p.si},${p.v},${p.i+0},${p.k+0}`).join('\n')}\n\n\n[HitObjects]\n${C.slice(0, C.length-3).map(c => c.notes).reduce((a,b) => a.concat(b)).sort((a,b) => a.t-b.t || a.x-b.x).map(n => n.export('.osu')).join('\n')}`], mapdata.filename, {type: 'text/plain'});
+    }
+  },
+  "zEXP": {
+    desc: "Exports as .osz (starts download)",
+    exec: async function(){
+      if(extras.zEXP.div.className == "disabled"){
+        return;
+      }else{
+        extras.zEXP.div.className = "disabled";
+      }
+      if(!Object.keys(Zip.files).length){
+        for(let [k, f] of Object.entries(files)){
+          await Zip.file(k, await f.arrayBuffer());
+        }
+      }
+      orderTP();
+      await Zip.file(mapdata.filename, `${mapdata.header}[TimingPoints]\n${TP.map(p => `${Math.round(p.t)},${p.i ? p.mspb : -1/p.mspb*100},${p.m},${p.ss},${p.si},${p.v},${p.i+0},${p.k+0}`).join('\n')}\n\n\n[HitObjects]\n${C.slice(0, C.length-3).map(c => c.notes).reduce((a,b) => a.concat(b)).sort((a,b) => a.t-b.t || a.x-b.x).map(n => n.export('.osu')).join('\n')}`);
+
+      Zip.generateAsync({type:"blob"}).then(function (blob) {
+        download([blob], mapdata.filename.split('[')[0].slice(0, -1) + ".osz", {type: 'application/zip'});
+        extras.zEXP.div.className = "";
+      }, err => console.error(err));
     }
   },
   "L-EAS": {
@@ -1189,6 +1232,7 @@ for(let i in extras){
   div.innerText = i;
   div.addEventListener('click', extras[i].exec);
   sideMenu.append(div);
+  extras[i].div = div;
 }
 
 /*

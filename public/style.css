@@ -110,7 +110,7 @@ h1 {
 #sidemenu {
   position: fixed;
   width: 215px;
-  bottom: 225px;
+  bottom: 55px;
   opacity: 0.8;
   transform: translateX(-100px);
   transition: all 0.5s cubic-bezier(0.5, 0, 0, 1);
@@ -120,12 +120,12 @@ h1 {
   transform: translateX(-85px);
 }
 #sidemenu > div {
-  margin: 5px 0 5px 0;
-  padding: 10px 10px 10px 0;
+  margin: 4px 0 4px 0;
+  padding: 3% 3% 3% 0;
   border: white 2px outset;
   border-radius: 5px;
   width: 100%;
-  font-size: 28px;
+  font-size: 24px;
   text-align: right;
 
   opacity: 0.4;
@@ -140,6 +140,12 @@ h1 {
   opacity: 1.0 !important;
   background: rgba(255, 255, 255, 0.7);
   transform: translateX(0) scaleX(1) !important;
+}
+#sidemenu > .disabled {
+  border: none;
+  opacity: 0.4 !important;
+  background: rgba(255, 255, 255, 0.7);
+  transform: translateX(-5%) scaleX(0.8) !important;
 }
 #sidemenu > div:hover {
   opacity: 0.6;
