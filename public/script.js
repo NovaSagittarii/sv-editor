@@ -27,7 +27,7 @@ const SETTINGS = {
 }
 
 const MODE_NAMES = ["SELECT", "NOTE", "LNOTE"];
-const MODE_SELECT = 0, MODE_PLACE_NOTE = 1, MODE_PLACE_LONG_NOTE = 2;
+const MODE_SELECT = 0, MODE_PLACE_NOTE = 1, MODE_PLACE_LONG_NOTE = 2, MODE_PLACE_FAKE_NOTE = 5;
 let M = MODE_SELECT; // mode
 
 let mp = false, mpx, mpy, mpMS, mr, mrx, mry, mrMS, mouseMS;
@@ -161,14 +161,25 @@ class JNote extends Note {
 
 }
 class FakeNote extends Note {
-  constructor(t){
-    this.x = null;
-    this.t = t + 1500;
-    this.ln = true; // 1 - note, 128 - long_note
-    this.hs = hs || 0;
+  constructor(x, t){
+    super();
+    this.x = x;
+    this.t = t + 10000;
+    this.ln = false; // although technically LN, it behaves more as rice (RN?) so i'll treat it as that
+    this.hs = 0;
     this._t = t;
+    this.i = true; // inverted (will draw based on this._t instead of this.t)
     this._id = (_nid ++).toString(36);
-    this.sfx = sfx || (this.ln ? "0:0:0:0:" : "0:0:0:").split(':');
+    this.sfx = "0:0:0:0:".split(':');
+  }
+  export(mode){
+    const KC = C.length-3;
+    switch(mode){
+      case ".osu":
+        if(isNaN(this.x)) alignNotes();
+        return `${Math.floor((512/KC)*(0.5+this.x))},192,${Math.floor(this.t)},128,0,${Math.floor(this._t)}:0:0:0:0:`;
+        break;
+    }
   }
 }
 const Column = function(x, w, t){
@@ -203,9 +214,9 @@ Column.prototype.drawNotes = function() {
   fill(0);
   for(let j = this.notes.length-1; j >= 0; j --){
     const N = this.notes[j];
-    const YRP = Math.round(yo - (N.t - t + yt*mspb) * z);
+    const YRP = Math.round(yo - ((N.i ? N._t : N.t) - t + yt*mspb) * z);
     //rect(this.x, YRP-4, this.w, 8);
-    if(!N.ln && YRP > height+100) break;
+    if(!N.ln && YRP > height+100 && !N.i) break;
     if(YRP <= 0) continue;
 
     push();
@@ -355,7 +366,7 @@ Column.prototype.drawNotes = function() {
           }
           tint(255, 150);
         }
-        image(I[withinSelection ? "tileWS" : "tile"][ColumnNote[C.length-3][this.id]], this.x, YRP - this.thd2, this.w, this.th);
+        image(I["tile" + (N instanceof FakeNote ? "Fake" : "") + (withinSelection ? "WS" : "")][ColumnNote[C.length-3][this.id]], this.x, YRP - this.thd2, this.w, this.th);
       }
     }
     pop();
@@ -394,6 +405,13 @@ Column.prototype.checkPlacement = function(){
       this.notes.sort((a,b) => a.t-b.t);
       mr = false;
     }
+    if(M === MODE_PLACE_FAKE_NOTE && mp == 1 && !this.type){
+      const t = (Math[SETTINGS.SNAPPING_MODE](( (mpMS-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
+      console.log("set FNote at " + t);
+      this.notes.push(new FakeNote(this.id, t));
+      this.notes.sort((a,b) => a.t-b.t);
+      mp = false;
+    }
 
     line(mouseX-15, mouseY, mouseX-5, mouseY);
     line(mouseX+15, mouseY, mouseX+5, mouseY);
@@ -418,7 +436,7 @@ Column.prototype.renderSV = function(){
     const N = this.notes[j];
     //const YRP = Math.round(yo - (N.t - t + yt*mspb) * z);
     const YRP = Math.round(yo + ( TP[tp].$t + (t-yt*mspb-TP[tp].t)*(TP[tp].$mspb) - N.$t) * z);
-    if(N._t < t) break; // if past the time, then it is "hit"
+    if(N._t < t && !N.i) break; // if past the time, then it is "hit"
     if(YRP <= 0) continue;
 
     if(N.ln){
@@ -434,7 +452,7 @@ Column.prototype.renderSV = function(){
       image(I["lnHead"][ColumnNote[C.length-3][this.id]], 0, 0, this.w, this.th);
       pop();
     }else{
-      image(I["tile"][ColumnNote[C.length-3][this.id]], this.x2, YRP - this.thd2, this.w, this.th);
+      image(I["tile" + (N instanceof FakeNote ? "Fake" : "")][ColumnNote[C.length-3][this.id]], this.x2, YRP - this.thd2, this.w, this.th);
     }
   }
 };
@@ -501,7 +519,7 @@ function cacheTP(){ // no idea if this is the most efficient or optimised but it
       while(i && N.t < TP[i].t && i){
         i --;
       }
-      N.$t = TP[i].$t + (N.t - TP[i].t) * TP[i].$mspb;
+      N.$t = TP[i].$t + ((N.i ? N._t : N.t) - TP[i].t) * TP[i].$mspb;
     }
   });
 }
@@ -549,6 +567,16 @@ function setup() {
   image(svTile, 0, 0);
   wsTile = get(0, 0, svTile.width, svTile.height);
   pop();*/
+  I.tileFake = [];
+  I.tile.forEach((img, i) => { // render PNote:Fake variation
+    push();
+    clear();
+    image(img, 0, 0);
+    tint(255, 0, 0, 160);
+    image(img, 0, 0);
+    I.tileFake[i] = get(0, 0, img.width, img.height);
+    pop();
+  });
   Object.keys(I).map(k => {
     I[k+"WS"] = [];
     I[k].forEach((img, i) => {
