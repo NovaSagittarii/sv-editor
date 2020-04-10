@@ -24,6 +24,7 @@ const SETTINGS = {
   INVERTED_SCROLL: false,
   SHOW_TIMINGPOINTS: true,
   ENABLE_PNOTES: true,
+  FAKE_OFFSET: 2000,
 }
 
 const MODE_NAMES = ["SELECT", "NOTE", "LNOTE"];
@@ -146,7 +147,9 @@ Note.fromString = function(datastring, mode){
   switch(mode){
     case ".osu":
       const ndat = datastring.split(':');
-      return new Note(...(ndat.splice(0, 1)[0].split(',').map(n => parseInt(n))), ndat);
+      let N = new Note(...(ndat.splice(0, 1)[0].split(',').map(n => parseInt(n))), ndat);
+      if(N._t+1000 < N.t) N = new FakeNote(N.x, N._t);
+      return N;
       break;
   }
 }
@@ -164,7 +167,7 @@ class FakeNote extends Note {
   constructor(x, t){
     super();
     this.x = x;
-    this.t = t + 10000;
+    this.t = t + SETTINGS.FAKE_OFFSET;
     this.ln = false; // although technically LN, it behaves more as rice (RN?) so i'll treat it as that
     this.hs = 0;
     this._t = t;
@@ -267,7 +270,7 @@ Column.prototype.drawNotes = function() {
       }
       if(!N.ln){
         fill(255, 150);
-        text(Math.round(N.t), this.x, YRP - this.th*1.5);
+        text(Math.floor(N.i ? N._t : N.t) + (N.t%1 ? "*" : ""), this.x, YRP - this.th*1.5);
         noFill();
         stroke(255, 100);
         rect(this.x, YRP - this.thd2, this.w + 6, this.th + 6);
@@ -428,7 +431,11 @@ Column.prototype.withinTS = function(){ // if column is horizontally present in 
   return !isNaN(TSL) && this.x > TSL && this.x < TSR;
 };
 Column.prototype.align = function(){
-  this.notes.map(n => n.x = this.id);
+  this.notes.map(n => {
+    n.t = Math.floor(n.t);
+    n._t = Math.floor(n._t);
+  });
+  if(!this.type) this.notes.map(n => n.x = this.id);
 }
 Column.prototype.renderSV = function(){
   if(this.type) return;
