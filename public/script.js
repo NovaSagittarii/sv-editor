@@ -105,43 +105,70 @@ TimingPoint.prototype.export = function(mode){
 TimingPoint.prototype.withinTS = function(){
   return !isNaN(TSE) && this.t > TSS && this.t < TSE;
 };
-const Note = function(x, y, t, type, hs, _t, sfx){
-  this.x = x;
-  this.t = t;
-  this.ln = type > 100; // 1 - note, 128 - long_note
-  this.hs = hs || 0;
-  this._t = this.ln && _t || t;
-  this._id = (_nid ++).toString(36);
-  this.sfx = sfx;
-};
-Note.prototype.export = function(mode){
-  const KC = C.length-3;
-  switch(mode){
-    case ".osu":
-      return `${Math.floor((512/KC)*(0.5+this.x))},192,${Math.floor(this.t)},${this.ln?128:1},${this.hs},${this.ln?Math.floor(this._t):0}:${this.sfx.join(':')}`;
-      break;
+class Note {
+  constructor(x, y, t, type, hs, _t, sfx){
+    this.x = x;
+    this.t = t;
+    this.ln = type > 100; // 1 - note, 128 - long_note
+    this.hs = hs || 0;
+    this._t = this.ln && _t || t;
+    this._id = (_nid ++).toString(36);
+    this.sfx = sfx || (this.ln ? "0:0:0:0:" : "0:0:0:").split(':');
   }
-};
-Note.prototype.withinTS = function(){ // within Time Selection (TSS/TSE)
-  return !isNaN(TSE) && ((this._t > TSS && this._t < TSE) || (this.t > TSS && this.t < TSE));
-};
-Note.prototype.select = TimingPoint.prototype.select = function(){
-  if(!NS[this._id]) NSl ++;
-  NS[this._id] = this;
-};
-Note.prototype.deselect = TimingPoint.prototype.deselect = function(){
-  if(NS[this._id]) NSl --;
-  delete NS[this._id]; // remove from NoteSelection
-};
-Note.prototype.selected = TimingPoint.prototype.selected = function(){ // if in NoteSelection
-  return !!NS[this._id];
-};
+  export(mode){
+    const KC = C.length-3;
+    switch(mode){
+      case ".osu":
+        if(isNaN(this.x)) alignNotes();
+        return `${Math.floor((512/KC)*(0.5+this.x))},192,${Math.floor(this.t)},${this.ln?128:1},${this.hs},${this.ln?Math.floor(this._t):0}:${this.sfx.join(':')}`;
+        break;
+    }
+  }
+  withinTS(){
+    return !isNaN(TSE) && ((this._t > TSS && this._t < TSE) || (this.t > TSS && this.t < TSE));
+  }
+  select(){
+    if(!NS[this._id]) NSl ++;
+    NS[this._id] = this;
+  }
+  deselect(){
+    if(NS[this._id]) NSl --;
+    delete NS[this._id]; // remove from NoteSelection
+  }
+  selected(){
+    return !!NS[this._id];
+  }
+  clone(){
+    return Object.assign({}, this);
+  }
+}
 Note.fromString = function(datastring, mode){
   switch(mode){
     case ".osu":
       const ndat = datastring.split(':');
       return new Note(...(ndat.splice(0, 1)[0].split(',').map(n => parseInt(n))), ndat);
       break;
+  }
+}
+TimingPoint.prototype.select = Note.prototype.select;
+TimingPoint.prototype.deselect = Note.prototype.select;
+TimingPoint.prototype.selected = Note.prototype.selected;
+TimingPoint.prototype.clone = Note.prototype.clone;
+class PNote extends Note {
+
+}
+class JNote extends Note {
+
+}
+class FakeNote extends Note {
+  constructor(t){
+    this.x = null;
+    this.t = t + 1500;
+    this.ln = true; // 1 - note, 128 - long_note
+    this.hs = hs || 0;
+    this._t = t;
+    this._id = (_nid ++).toString(36);
+    this.sfx = sfx || (this.ln ? "0:0:0:0:" : "0:0:0:").split(':');
   }
 }
 const Column = function(x, w, t){
@@ -382,6 +409,9 @@ Column.prototype.checkPlacement = function(){
 Column.prototype.withinTS = function(){ // if column is horizontally present in the dragged "time" selection
   return !isNaN(TSL) && this.x > TSL && this.x < TSR;
 };
+Column.prototype.align = function(){
+  this.notes.map(n => n.x = this.id);
+}
 Column.prototype.renderSV = function(){
   if(this.type) return;
   for(let j = this.notes.length-1; j >= 0; j --){
@@ -420,6 +450,9 @@ function renderColumnLines(x1, x2){
     stroke(colors[d][Math.abs(j) % d]);
     line(x1, YRP, x2, YRP);
   }
+}
+function alignNotes(){
+  C && C.map(c => c.type || c.align());
 }
 
 let C, TP = [], tp;
@@ -567,6 +600,7 @@ function draw() {
         SongAudio.currentTime = (t - yt*mspb - co)/1000;
       }
       mouseMS = (yo - mouseY)/z - yt*mspb + t;
+      if(tp >= TP.length) tp = TP.length-1;
       while(tp && t-yt*mspb < TP[tp].t){
         tp --;
         updateTPInfo();
@@ -592,7 +626,7 @@ function draw() {
           const N = TP[i];
           if(N.t > t_f) continue;
           if(N.t <= t_i) break;
-          const XRP = Math.round(RB_C+70 + (Math.min(N.mspb,10)-1)*15);
+          const XRP = Math.round(RB_C+70 + (Math.min(N.i?N.$mspb||1:N.mspb,10)-1)*15);
           const YRP = Math.round(yo - (N.t - t + yt*mspb) * z);
           push();
           stroke((N.mspb<1||N.mspb>=4) ? 255 : 0, N.mspb<0.7 ? 255-1.4*(0.7-N.mspb)*255 : 255, N.mspb>1?100*N.mspb:0);
@@ -792,7 +826,7 @@ function keyPressed(){
         // console.log(clipboardObjects);
         // continue from there ...
         const clipboardFirst = Math.min(...clipboardObjects.filter(c => c[0]).map(c => c[0].t)); // assuming no one uses a 65000k map xD
-        const currentTime = t-yt*mspb-co;
+        const currentTime = t-yt*mspb;
         const offset = currentTime-clipboardFirst;
         const clipboard_offset = clipboardObjects.map(c => c.length ? c.map(n => {n.t += offset; n._t += offset; return n}) : []);
         // console.log(clipboard_offset);
@@ -1037,7 +1071,7 @@ async function parseFile(file){
     });
     wavesurfer.on('seek', () => {
       yt = 0;
-      t = SongAudio.currentTime*1000+co;
+      t = SongAudio.currentTime*1000-co;
     })
   };
   const audioPATH = d.split('\n').filter(e => e.startsWith('AudioFilename: '))[0].replace('AudioFilename: ', '');
@@ -1212,6 +1246,12 @@ const extras = {
       const STP = Object.values(NS); // selected timingpoints
       if(STP.filter(tp => tp.m === undefined).length) return;
       sineEase(...STP, Math.round(Math.abs(STP[0].t-STP[1].t)/(mspb/d)*256)/256);
+    }
+  },
+  "1>NS": {
+    desc: "Set note selection to 1.00x",
+    exec: function(){
+      Object.values(NS).filter(tp => tp.m !== undefined).map(tp => tp.mspb = 1);
     }
   },
   "view": {
