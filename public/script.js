@@ -88,15 +88,17 @@ const TimingPoint = function(to, mspb, m, ss, si, v, i, k){
   this.t = to;
   this.mspb = mspb > 0 ? mspb : -100/mspb
   this.bpm = TP.length ? TP[TP.length-1].bpm : 1;
+  this.sbpm = TP.length ? TP[TP.length-1].sbpm : 1; // snapping bpm (used to determine if editor should ignore BPM TPs)
   this.m = m;    // meter
   this.ss = ss;  // sample set
   this.si = si;  // sample index
   this.v = v|0;  // volume
   this.i = !!parseInt(i);  // inherited ?
-  this.ignore = this.i; // ignore
+  this.a = (this.mspb > 12 && this.mspb < 4000); // active/inactive (inactive Red TPs still affect speed but do not set the bpm) 12mspb ~ 5000bpm; 4000mspb ~ 15bpm. [ this.a !== (this.bpm !== this.sbpm) ]
   this.k = !!k;  // kiai ?
   this._id = (_nid ++).toString(36);
   if(this.i) this.bpm = Float64Array.of(60000/mspb);
+  if(this.i && this.a) this.sbpm = this.bpm;
 };
 TimingPoint.prototype.export = function(mode){
   switch(mode){
@@ -110,8 +112,17 @@ TimingPoint.prototype.withinTS = function(){
 };
 TimingPoint.prototype.convert = function(){
   this.mspb = 60000/(getBPMBaseline()*this.mspb);
-  this.bpm = []
+  this.bpm = Float64Array.of(60000/this.mspb);
   this.i = true;
+};
+TimingPoint.prototype.alignBPM = function(){
+  let _0 = false;
+  for(let i = TP.indexOf(this)+1; i < TP.length; i ++){
+    if(!i || (TP[i].i && TP[i].a)) break;
+    if(TP[i].i && !TP[i].a) _0 = true;
+    if(!_0) TP[i].bpm = this.bpm; // do not keep updating actual BPM speed of TPs after encounter "ignored BPM TP"
+    TP[i].sbpm  = this.sbpm;
+  }
 };
 class Note {
   constructor(x, y, t, type, hs, _t, sfx){
@@ -304,9 +315,9 @@ Column.prototype.drawNotes = function() {
         }
         if(sel) sN[3] = true;
       }
-      image(I[withinSelection ? "svTileWS" : "svTile"][0], this.x, YRP - this.thd2, this.w, this.th);
+      image(I["svTile" + (!N.i||N.a ? "" : "Inactive") + (withinSelection ? "WS" : "")][0], this.x, YRP - this.thd2, this.w, this.th);
       if(sN && !sN[3] && withinSelection && mouseIsPressed) pop(); // lock x-axis
-      stroke(N.i ? "#FF0000" : "#00FF00");
+      stroke(N.i ? (N.a ? "#FF0000" : "#880000") : "#00FF00");
       strokeWeight(1);
       line(LB_C + (!N.i*15), YRP, RB_C, YRP);
       if(sel) line(LB_C + (!N.i*15), YRP+1, RB_C, YRP+1);
@@ -318,7 +329,7 @@ Column.prototype.drawNotes = function() {
       noStroke();
       textAlign(LEFT, CENTER);
       //text(N.i ? (N.bpm.toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), N.i ? LB_C-5 : RB_C+5, YRP);
-      text(N.i ? (N.bpm[0].toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x" + " [a] " + (N.mspb*N.bpm[0]).toFixed(2) + "bpm"), N.i ? RB_C+45 : RB_C+5, SongAudio.paused ? YRP : (TP[tp] == N) ? Math.min(YRP, yo) : Math.min(YRP, yo + 20*Math.abs(tp-TP.indexOf(N)))); // 20*Math.abs ensures only it gets Math.min'd when YRP is greater than yo. Allows transition smooth in, but hard snap out.
+      text(N.i ? (N.bpm[0].toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x" + " ~ " + (N.mspb*N.bpm[0]).toFixed(2) + "bpm"), N.i ? RB_C+45 : RB_C+5, SongAudio.paused ? YRP : (TP[tp] == N) ? Math.min(YRP, yo) : Math.min(YRP, yo + 20*Math.abs(tp-TP.indexOf(N)))); // 20*Math.abs ensures only it gets Math.min'd when YRP is greater than yo. Allows transition smooth in, but hard snap out.
     }else{
       if(N.ln){ //  adding note to the selection (more accurately- setting the note as the selected note)
         const YRP_E = (sel && sN[3]) ? mouseY : (yo - (N._t - t + yt*mspb) * z);
@@ -450,7 +461,7 @@ Column.prototype.renderSV = function(){
     const N = this.notes[j];
     //const YRP = Math.round(yo - (N.t - t + yt*mspb) * z);
     const YRP = Math.round(yo + ( TP[tp].$t + (t-yt*mspb-TP[tp].t)*(TP[tp].$mspb) - N.$t) * z);
-    if(N._t < t && !N.i) break; // if past the time, then it is "hit"
+    if((SongAudio.paused ? YRP > height : N._t < t) && !N.i) break; // if past the time, then it is "hit"
     if(YRP <= 0) continue;
 
     if(N.ln){
@@ -495,14 +506,19 @@ let sp_t; // scroll pause timeout
 let tile, svTile, lnHead, lnBody, wsTile;
 const I = {};
 
-function getBPMBaseline(){
+function getBPMBaseline(debug){
     orderTP()
     let $tp = 0;
     const counter = {};
-    [].concat(...C.map(c => c.type ? [] : c.notes)).map(n => n.t).sort((a,b) => a-b).forEach(T => {
+    /*[].concat(...C.map(c => c.type ? [] : c.notes)).map(n => n.t).sort((a,b) => a-b).forEach(T => {
         while($tp < TP.length-1 && T > TP[$tp].t) $tp ++;
         counter[TP[$tp].bpm] = (counter[TP[$tp].bpm] || 0) + 1;
-    });
+    });*/ // old method: weigh bpms by note count
+    if(TP.length === 1) return TP[0].bpm[0];
+    for(let i = TP.length-1; i >= 0; i --){
+      counter[TP[i].bpm] = (counter[TP[i].bpm] || 0) + ((TP[i+1] ? TP[i+1].t : Math.max(...C.filter(c => !c.type).map(c => c.notes[c.notes.length-1].t))) - TP[i].t);
+    } // new method: weigh bpms by "time"
+    if(debug) return counter;
     return parseFloat(Object.keys(counter).map(e => [counter[e], e]).sort((a,b) => b[0] - a[0])[0][1]);
 }
 function cacheTP(){ // no idea if this is the most efficient or optimised but it should work. (hopefully)
@@ -556,8 +572,8 @@ function updateLineBuffers(){
   llb = (1863/mspb*zR*d>>5);// *14 * 414
 }
 function updateTPInfo(){
-  bpm = TP[tp].bpm[0];
-  mspb = 60000/TP[tp].bpm[0];
+  bpm = TP[tp].sbpm[0];
+  mspb = 60000/TP[tp].sbpm[0];
   if(TP[tp].i){
     to = TP[tp].t;
     updateLineBuffers();
@@ -582,6 +598,7 @@ function setup() {
   wsTile = get(0, 0, svTile.width, svTile.height);
   pop();*/
   I.tileFake = [];
+  I.svTileInactive = [];
   I.tile.forEach((img, i) => { // render PNote:Fake variation
     push();
     clear();
@@ -591,6 +608,15 @@ function setup() {
     I.tileFake[i] = get(0, 0, img.width, img.height);
     pop();
   });
+  I.svTile.forEach((img, i) => { // render
+    push();
+    clear();
+    image(img, 0, 0);
+    tint(255, 0, 0, 160);
+    image(img, 0, 0);
+    I.svTileInactive[i] = get(0, 0, img.width, img.height);
+    pop();
+  })
   Object.keys(I).map(k => {
     I[k+"WS"] = [];
     I[k].forEach((img, i) => {
@@ -714,9 +740,9 @@ function draw() {
       text((TP[tp].i ? 1 : TP[tp].mspb).toFixed(2) + "x", RB_C + 100, 460);
       text("tpid="+tp, RB_C+100, 475);
       text("tpmax="+TP.length, RB_C+100, 490);*/
-      text("D :\nZ :\nbpm :\n|\nsv :\ntpid :\ntpmax :\nNSl :", RB_C+285, 490);
+      text("D :\nZ :\nsbpm: \nbpm :\n|\nsv :\ntpid :\ntpmax :\nNSl :", RB_C+285, 490);
       textAlign(LEFT, CENTER);
-      text(`1/${d}\n${zR}\n${bpm.toFixed(2)} bpm\n${TP[tp].i ? "" : ((bpm * TP[tp].mspb).toFixed(2) + " bpm [a]")}\n${(TP[tp].$mspb ? TP[tp].$mspb.toFixed(2) : "?.??") + "x"}\n${tp}\n${TP.length-1}\n${NSl}`, RB_C+290, 490);
+      text(`1/${d}\n${zR}\n${bpm.toFixed(2)}\n${TP[tp].bpm[0].toFixed(2)} bpm\n${TP[tp].i ? "" : ((TP[tp].bpm[0] * TP[tp].mspb).toFixed(2) + " bpm [a]")}\n${(TP[tp].$mspb ? TP[tp].$mspb.toFixed(2) : "?.??") + "x"}\n${tp}\n${TP.length-1}\n${NSl}`, RB_C+290, 490);
       text(Math.floor(t-yt*mspb), RB_C+215, yo);
       pop();
 
@@ -816,7 +842,7 @@ function moveSongPointer(scrollDirection, measureIntervalOverride){
       t = SongAudio.currentTime*1000+co;
     }
   }
-  bpm = TP[tp].bpm[0];
+  bpm = TP[tp].sbpm[0];
 }
 function keyPressed(){
   if(state !== 3) return;
@@ -857,6 +883,12 @@ function keyPressed(){
     case 67: // C opy
       if(keys[17]){
         clipboard = C.map(c => c.withinTS() ? c.notes.filter(n => NS[n._id]).map(n => n.export('.osu')) : []);
+      }
+      break;
+    case 68: // D eselect [Ctrl+Shift+D]
+      if(keys[16] && keys[17]){
+        Object.keys(NS).map(k => delete NS[k]); // NSl --
+        NSl = 0;
       }
       break;
     case 86: // V paste
@@ -1076,7 +1108,7 @@ async function parseFile(file){
 
   tp = 0;
   mspb = TP[0].mspb;
-  bpm = TP[0].bpm[0];
+  bpm = TP[0].sbpm[0];
   t = to = TP[0].t;
   updateTPInfo();
 
@@ -1091,7 +1123,7 @@ async function parseFile(file){
       console.info(`Finished loading audio file. Took ${Math.floor(performance.now() - loadStart)} ms.`);
       tp = 0;
       mspb = TP[0].mspb;
-      bpm = TP[0].bpm[0];
+      bpm = TP[0].sbpm[0];
       t = to = TP[0].t;
       SongAudio.currentTime = t/1000;
       updateTPInfo();
