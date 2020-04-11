@@ -81,6 +81,7 @@ const ColumnNote = {
   "8": [0, 1, 1, 0, 0, 1, 1, 0],
   "9": [0, 1, 1, 0, 2, 0, 1, 1, 0]
 };
+Object.keys(ColumnNote).filter(n => parseInt(n) > 4).forEach(n => ColumnNote[n*2+""] = [].concat(ColumnNote[n]).concat(ColumnNote[n]));
 const divisors = Object.keys(colors).map(e => parseInt(e));
 const snap = (ms) => (Math[SETTINGS.SNAPPING_MODE](( (ms-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
 const TimingPoint = function(to, mspb, m, ss, si, v, i, k){
@@ -92,6 +93,7 @@ const TimingPoint = function(to, mspb, m, ss, si, v, i, k){
   this.si = si;  // sample index
   this.v = v|0;  // volume
   this.i = !!parseInt(i);  // inherited ?
+  this.ignore = this.i; // ignore
   this.k = !!k;  // kiai ?
   this._id = (_nid ++).toString(36);
   if(this.i) this.bpm = Float64Array.of(60000/mspb);
@@ -105,6 +107,11 @@ TimingPoint.prototype.export = function(mode){
 };
 TimingPoint.prototype.withinTS = function(){
   return !isNaN(TSE) && this.t > TSS && this.t < TSE;
+};
+TimingPoint.prototype.convert = function(){
+  this.mspb = 60000/(getBPMBaseline()*this.mspb);
+  this.bpm = []
+  this.i = true;
 };
 class Note {
   constructor(x, y, t, type, hs, _t, sfx){
@@ -311,7 +318,7 @@ Column.prototype.drawNotes = function() {
       noStroke();
       textAlign(LEFT, CENTER);
       //text(N.i ? (N.bpm.toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), N.i ? LB_C-5 : RB_C+5, YRP);
-      text(N.i ? (N.bpm[0].toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), N.i ? RB_C+45 : RB_C+5, SongAudio.paused ? YRP : (TP[tp] == N) ? Math.min(YRP, yo) : Math.min(YRP, yo + 20*Math.abs(tp-TP.indexOf(N)))); // 20*Math.abs ensures only it gets Math.min'd when YRP is greater than yo. Allows transition smooth in, but hard snap out.
+      text(N.i ? (N.bpm[0].toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x" + " [a] " + (N.mspb*N.bpm[0]).toFixed(2) + "bpm"), N.i ? RB_C+45 : RB_C+5, SongAudio.paused ? YRP : (TP[tp] == N) ? Math.min(YRP, yo) : Math.min(YRP, yo + 20*Math.abs(tp-TP.indexOf(N)))); // 20*Math.abs ensures only it gets Math.min'd when YRP is greater than yo. Allows transition smooth in, but hard snap out.
     }else{
       if(N.ln){ //  adding note to the selection (more accurately- setting the note as the selected note)
         const YRP_E = (sel && sN[3]) ? mouseY : (yo - (N._t - t + yt*mspb) * z);
