@@ -171,7 +171,7 @@ class FakeNote extends Note {
     this.ln = false; // although technically LN, it behaves more as rice (RN?) so i'll treat it as that
     this.hs = 0;
     this._t = t;
-    this.i = true; // inverted (will draw based on this._t instead of this.t)
+    this.I = true; // inverted (will draw based on this._t instead of this.t)
     this._id = (_nid ++).toString(36);
     this.sfx = "0:0:0:0:".split(':');
   }
@@ -217,7 +217,7 @@ Column.prototype.drawNotes = function() {
   fill(0);
   for(let j = this.notes.length-1; j >= 0; j --){
     const N = this.notes[j];
-    const YRP = Math.round(yo - ((N.i ? N._t : N.t) - t + yt*mspb) * z);
+    const YRP = Math.round(yo - ((N.I ? N._t : N.t) - t + yt*mspb) * z);
     //rect(this.x, YRP-4, this.w, 8);
     if(!N.ln && YRP > height+100 && !N.i) break;
     if(YRP <= 0) continue;
@@ -270,7 +270,7 @@ Column.prototype.drawNotes = function() {
       }
       if(!N.ln){
         fill(255, 150);
-        text(Math.floor(N.i ? N._t : N.t) + (N.t%1 ? "*" : ""), this.x, YRP - this.th*1.5);
+        text(Math.floor(N.I ? N._t : N.t) + (N.t%1 ? "*" : ""), this.x, YRP - this.th*1.5);
         noFill();
         stroke(255, 100);
         rect(this.x, YRP - this.thd2, this.w + 6, this.th + 6);
@@ -526,7 +526,7 @@ function cacheTP(){ // no idea if this is the most efficient or optimised but it
       while(i && N.t < TP[i].t && i){
         i --;
       }
-      N.$t = TP[i].$t + ((N.i ? N._t : N.t) - TP[i].t) * TP[i].$mspb;
+      N.$t = TP[i].$t + ((N.I ? N._t : N.t) - TP[i].t) * TP[i].$mspb;
     }
   });
 }
