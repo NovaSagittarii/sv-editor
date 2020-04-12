@@ -844,7 +844,7 @@ function moveSongPointer(scrollDirection, measureIntervalOverride){
   }
   bpm = TP[tp].sbpm[0];
 }
-function keyPressed(){
+async function keyPressed(){
   if(state !== 3) return;
   keys[keyCode] = true;
   const temp_d = d
@@ -882,7 +882,7 @@ function keyPressed(){
       break;
     case 67: // C opy
       if(keys[17]){
-        clipboard = C.map(c => c.withinTS() ? c.notes.filter(n => NS[n._id]).map(n => n.export('.osu')) : []);
+        clipboard = C.map(c => c.notes.filter(n => NS[n._id]).map(n => n.export('.osu')));
       }
       break;
     case 68: // D eselect [Ctrl+Shift+D]
@@ -892,27 +892,34 @@ function keyPressed(){
       }
       break;
     case 86: // V paste
-      if(keys[17]){
-        // convert text to objects
-        const cb = clipboard.slice(0);
-        const clipboardObjects = cb.splice(0, C.length-3).map(c => c.map(n => n = new Note(...(n+":").split(':')[0].split(',').map(e => parseInt(e))))).concat(cb.map(c => c.map(n => n = new TimingPoint(...(n.split(',').map(e => parseFloat(e) || parseInt(e)))))));
-        clipboardObjects.map(c => c.forEach(n => n.x = clipboardObjects.indexOf(c)));
-        // console.log(clipboardObjects);
-        // continue from there ...
-        const clipboardFirst = Math.min(...clipboardObjects.filter(c => c[0]).map(c => c[0].t)); // assuming no one uses a 65000k map xD
-        const currentTime = t-yt*mspb;
-        const offset = currentTime-clipboardFirst;
-        const clipboard_offset = clipboardObjects.map(c => c.length ? c.map(n => {n.t += offset; n._t += offset; return n}) : []);
-        // console.log(clipboard_offset);
-        C.map(c => {
-          const N = clipboard_offset[c.id];
-          c.notes.push(...N);
-          if(c.type){
-            TP.push(...N);
-            orderTP()
+      try {
+        if(keys[17]){
+          // convert text to objects
+          const cb = keys[16] ? clipboard.map(c => []) : clipboard.slice(0);
+          if(keys[16]){
+            cb[cb.length-1] = (await navigator.clipboard.readText()).split('\n');
           }
-          c.notes.sort((a,b) => a.t-b.t);
-        });
+          const clipboardObjects = cb.splice(0, C.length-3).map(c => c.map(n => n = new Note(...(n+":").split(':')[0].split(',').map(e => parseInt(e))))).concat(cb.map(c => c.map(n => n = new TimingPoint(...(n.split(',').map(e => parseFloat(e) || parseInt(e)))))));
+          clipboardObjects.map(c => c.forEach(n => n.x = clipboardObjects.indexOf(c)));
+          // console.log(clipboardObjects);
+          // continue from there ...
+          const clipboardFirst = Math.min(...clipboardObjects.filter(c => c[0]).map(c => c[0].t)); // assuming no one uses a 65000k map xD
+          const currentTime = t-yt*mspb;
+          const offset = currentTime-clipboardFirst;
+          const clipboard_offset = clipboardObjects.map(c => c.length ? c.map(n => {n.t += offset; n._t += offset; return n}) : []);
+          // console.log(clipboard_offset);
+          C.map(c => {
+            const N = clipboard_offset[c.id];
+            c.notes.push(...N);
+            if(c.type){
+              TP.push(...N);
+              orderTP()
+            }
+            c.notes.sort((a,b) => a.t-b.t);
+          });
+        }
+      }catch(err){
+        console.error("Failed to paste. Error:", err);
       }
       break;
     case 88: // X cut
