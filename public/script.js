@@ -167,6 +167,7 @@ Note.fromString = function(datastring, mode){
       const ndat = datastring.split(':');
       let N = new Note(...(ndat.splice(0, 1)[0].split(',').map(n => parseInt(n))), ndat);
       if(N._t+1000 < N.t) N = new FakeNote(N.x, N._t);
+      if(datastring.includes('NaN') && N._t !== NaN) N = new NaNLNote(N.x, N._t); // apparently (NaN === NaN) evaluates to false so I'm reading from the datastring instead
       return N;
       break;
   }
@@ -203,6 +204,27 @@ class FakeNote extends Note {
     }
   }
 }
+class NaNLNote extends Note {
+  constructor(x, t){
+    super();
+    this.x = x;
+    this.t = t;
+    this.ln = false; // although technically LN, it behaves more as rice (RN?) so i'll treat it as that
+    this.hs = 0;
+    this._t = t;
+    this._id = (_nid ++).toString(36);
+    this.sfx = "0:0:0:0:".split(':');
+  }
+  export(mode){
+    const KC = C.length-3;
+    switch(mode){
+      case ".osu":
+        if(isNaN(this.x)) alignNotes();
+        return `${Math.floor((512/KC)*(0.5+this.x))},192,NaN,128,0,${Math.floor(this._t)}:0:0:0:0:`;
+        break;
+    }
+  }
+}
 const Column = function(x, w, t){
   this.x = x;
   this.x2 = x + 800;
@@ -235,6 +257,7 @@ Column.prototype.drawNotes = function() {
   fill(0);
   for(let j = this.notes.length-1; j >= 0; j --){
     const N = this.notes[j];
+    if(isNaN(N.t) && isNaN(N._t)) continue; // dont draw this garbage...
     const YRP = Math.round(yo - ((N.I ? N._t : N.t) - t + yt*mspb) * z);
     //rect(this.x, YRP-4, this.w, 8);
     if(!N.ln && YRP > height+100 && !N.i) break;
@@ -329,7 +352,11 @@ Column.prototype.drawNotes = function() {
       noStroke();
       textAlign(LEFT, CENTER);
       //text(N.i ? (N.bpm.toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x"), N.i ? LB_C-5 : RB_C+5, YRP);
-      text(N.i ? (N.bpm[0].toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x" + " ~ " + (N.mspb*N.bpm[0]).toFixed(2) + "bpm"), N.i ? RB_C+45 : RB_C+5, SongAudio.paused ? YRP : (TP[tp] == N) ? Math.min(YRP, yo) : Math.min(YRP, yo + 20*Math.abs(tp-TP.indexOf(N)))); // 20*Math.abs ensures only it gets Math.min'd when YRP is greater than yo. Allows transition smooth in, but hard snap out.
+      try {
+        text(N.i ? (N.bpm[0].toFixed(2) + "bpm") : (N.mspb.toFixed(2) + "x" + " ~ " + (N.mspb*N.bpm[0]).toFixed(2) + "bpm"), N.i ? RB_C+45 : RB_C+5, SongAudio.paused ? YRP : (TP[tp] == N) ? Math.min(YRP, yo) : Math.min(YRP, yo + 20*Math.abs(tp-TP.indexOf(N)))); // 20*Math.abs ensures only it gets Math.min'd when YRP is greater than yo. Allows transition smooth in, but hard snap out.
+      }catch(err){
+
+      }
     }else{
       if(N.ln){ //  adding note to the selection (more accurately- setting the note as the selected note)
         const YRP_E = (sel && sN[3]) ? mouseY : (yo - (N._t - t + yt*mspb) * z);
@@ -387,7 +414,7 @@ Column.prototype.drawNotes = function() {
           }
           tint(255, 150);
         }
-        image(I["tile" + (N instanceof FakeNote ? "Fake" : "") + (withinSelection ? "WS" : "")][ColumnNote[C.length-3][this.id]], this.x, YRP - this.thd2, this.w, this.th);
+        image(I["tile" + ((N instanceof NaNLNote || N instanceof FakeNote) ? "Fake" : "") + (withinSelection ? "WS" : "")][ColumnNote[C.length-3][this.id]], this.x, YRP - this.thd2, this.w, this.th);
       }
     }
     pop();
@@ -429,7 +456,7 @@ Column.prototype.checkPlacement = function(){
     if(M === MODE_PLACE_FAKE_NOTE && mp == 1 && !this.type){
       const t = (Math[SETTINGS.SNAPPING_MODE](( (mpMS-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
       console.log("set FNote at " + t);
-      this.notes.push(new FakeNote(this.id, t));
+      this.notes.push(new NaNLNote(this.id, t));
       this.notes.sort((a,b) => a.t-b.t);
       mp = false;
     }
@@ -477,7 +504,7 @@ Column.prototype.renderSV = function(){
       image(I["lnHead"][ColumnNote[C.length-3][this.id]], 0, 0, this.w, this.th);
       pop();
     }else{
-      image(I["tile" + (N instanceof FakeNote ? "Fake" : "")][ColumnNote[C.length-3][this.id]], this.x2, YRP - this.thd2, this.w, this.th);
+      image(I["tile" + ((N instanceof NaNLNote || N instanceof FakeNote) ? "Fake" : "")][ColumnNote[C.length-3][this.id]], this.x2, YRP - this.thd2, this.w, this.th);
     }
   }
 };
@@ -536,6 +563,7 @@ function cacheTP(){ // no idea if this is the most efficient or optimised but it
     i = TP.length-1;
     for(let n = c.notes.length-1; n >= 0; n --){
       const N = c.notes[n];
+      if(isNaN(N.t) && isNaN(N._t)) continue;
       while(i && N._t < TP[i].t){
         i --;
       }
@@ -546,6 +574,7 @@ function cacheTP(){ // no idea if this is the most efficient or optimised but it
     i = TP.length-1;
     for(let n = c.notes.length-1; n >= 0; n --){
       const N = c.notes[n];
+      if(isNaN(N.t) && isNaN(N._t)) continue;
       while(i && N.t < TP[i].t && i){
         i --;
       }
@@ -599,7 +628,7 @@ function setup() {
   pop();*/
   I.tileFake = [];
   I.svTileInactive = [];
-  I.tile.forEach((img, i) => { // render PNote:Fake variation
+  I.lnHead.forEach((img, i) => { // render PNote:Fake variation
     push();
     clear();
     image(img, 0, 0);
@@ -895,9 +924,10 @@ async function keyPressed(){
       try {
         if(keys[17]){
           // convert text to objects
-          const cb = keys[16] ? clipboard.map(c => []) : clipboard.slice(0);
+          const cb = keys[16] ? C.map(c => []) : clipboard.slice(0);
           if(keys[16]){
             cb[cb.length-1] = (await navigator.clipboard.readText()).split('\n');
+            console.log(cb);
           }
           const clipboardObjects = cb.splice(0, C.length-3).map(c => c.map(n => n = new Note(...(n+":").split(':')[0].split(',').map(e => parseInt(e))))).concat(cb.map(c => c.map(n => n = new TimingPoint(...(n.split(',').map(e => parseFloat(e) || parseInt(e)))))));
           clipboardObjects.map(c => c.forEach(n => n.x = clipboardObjects.indexOf(c)));
@@ -1079,10 +1109,11 @@ async function parseFile(file){
   mapdata.filename = file.name;
   mapdata.Difficulty = Difficulty;
   mapdata.header = d.split('[TimingPoints]')[0];
+  mapdata.raw = d;
   sideMenu.style.transform = "";
 
-  const Notes = d.split('\n\n\n')[1].split('\n').slice(1);
-  const TimingPoints = d.split('\n\n').filter(e => e.startsWith('[TimingPoints]'))[0].split('\n').slice(1).map(e => e.split(',').map(n => parseFloat(n) || parseInt(n)));
+  const Notes = d.split('[HitObjects]\n')[1].split('\n');
+  const TimingPoints = d.split('[TimingPoints]\n')[1].split('\n[HitObjects]\n')[0].split('\n').map(e => e.split(',').map(n => parseFloat(n) || parseInt(n)));
   const ColumnWidth = 512/Difficulty.CircleSize;
 
   C = [];
@@ -1097,10 +1128,15 @@ async function parseFile(file){
   let TPC = 0;
   TimingPoints.forEach(e => {
     /*Offset, Milliseconds per Beat, Meter, Sample Set, Sample Index, Volume, Inherited, Kiai Mode*/
-    const nTP = new TimingPoint(...e);
-    TP.push(nTP);
-    C[Difficulty.CircleSize/* + TPC%3*/].notes.push(nTP);
-    TPC ++;
+    try {
+      if(e.length < 7) throw "broken tp";
+      const nTP = new TimingPoint(...e);
+      TP.push(nTP);
+      C[Difficulty.CircleSize/* + TPC%3*/].notes.push(nTP);
+      TPC ++;
+    } catch (error) {
+      console.warn("Invalid note format:", e, '\n', error);
+    }
   });
   Notes.forEach(e => {
     /* x,y,time,type,hitSound,endTime:extras */
