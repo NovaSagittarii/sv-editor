@@ -1273,6 +1273,49 @@ function sineEase(T1, T2, D){
   C[Math.min(T1.x, T2.x)].notes.sort((a,b) => a.t-b.t);
 }
 
+function multiplicativeMerge(){
+  // prolly not the best algorithm, but it should work fine
+  syncTP();
+  cacheTP();
+  const temp = Object.values(NS).sort((a,b) => a.t-b.t || b.i-a.i)[0]; // grab the first one for template
+  const tps = Object.values(NS).slice(0);
+  let $tp = {};
+  tps.forEach(tp => {
+    tp.t = Math.floor(tp.t);
+    $tp[tp.t] = ({t: tp.t, sv: 1}); // init 1.00x
+  });
+  $tp = Object.values($tp);
+  $tp.sort((a,b) => a.t-b.t);
+  const $C = C.filter(c => c.type);
+  $C.map(c => tps.filter(n => n.x === c.id).sort((a,b) => a.t-b.t || b.i-a.i)).forEach(nt => {
+    if(!nt.length) return;
+    let j = 0;
+    console.log($tp.map(a => a.sv));
+    for(let i = 0; i < $tp.length; i ++){
+      while(nt[j+1] && $tp[i].t >= nt[j+1].t) j ++;
+      $tp[i].sv *= (j==0&&nt[0].t>$tp[i].t)?1:nt[j].$mspb; // multiplicative "stacking"
+    }
+    console.log($tp.map(a => a.sv));
+  });
+  $C.forEach(c => {
+    for(let i = c.notes.length-1; i >= 0; i --){
+      const n = c.notes[i];
+      if(NS[n._id]){
+        c.notes.splice(i, 1);
+        n.deselect();
+        TP.splice(TP.indexOf(n), 1);
+      }
+    }
+  });
+  for(let i = 0; i < $tp.length; i ++){
+    const nTP = new TimingPoint($tp[i].t, $tp[i].sv, temp.m, temp.ss, temp.si, temp.v, false, temp.k);
+    TP.push(nTP);
+    $C[0].notes.push(nTP);
+  }
+  $C[0].notes.sort((a,b) => a.t-b.t);
+  orderTP();
+}
+
 const extras = {
   "SVprune": {
     desc: "Selects all TimingPoint(s) that are insignificant SV-wise and deletes them. (threshold 0.01ms)",
@@ -1318,12 +1361,12 @@ const extras = {
       console.log(TP.map(p => `${Math.round(p.t)},${p.i ? p.mspb : -1/p.mspb*100},${p.m},${p.ss},${p.si},${p.v},${p.i+0},${p.k+0}`).join('\n'));
     }
   },
-  "Nexp": {
+  /*"Nexp": {
     desc: "Exports all Note(s) in .osu format",
     exec: function(){
       console.log(C.slice(0, C.length-3).map(c => c.notes).reduce((a,b) => a.concat(b)).sort((a,b) => a.t-b.t).map(n => n.export('.osu')).join('\n'));
     }
-  },
+  },*/
   "oEXP": {
     desc: "Exports edited file as .osu file (starts download)",
     exec: function(){
@@ -1370,6 +1413,10 @@ const extras = {
       if(STP.filter(tp => tp.m === undefined).length) return;
       sineEase(...STP, Math.round(Math.abs(STP[0].t-STP[1].t)/(mspb/d)*256)/256);
     }
+  },
+  "MERGE": {
+    desc: "Applies a multiplicative merge on the selected TimingPoints. This only works if the selected TimingPoints span multiple columns.",
+    exec: multiplicativeMerge
   },
   "1>NS": {
     desc: "Set note selection to 1.00x",
