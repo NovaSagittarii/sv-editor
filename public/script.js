@@ -1234,7 +1234,12 @@ function download(data, fileName, fileOptions) {
   URL.revokeObjectURL(_file);
 }
 
+function syncTP(){
+  C.filter(c => c.type).forEach(c => c.notes.forEach(tp => tp.x = c.id));
+  // make all the tp's have x = c.id, this only really matters when you're changing them tho.
+}
 function linearEase(T1, T2, D){
+  syncTP();
   const B = T1.i*100 || T1.mspb;
   const K = T2.i*100 || T2.mspb - B;
   const T = (T2.t - T1.t)/D;
@@ -1244,13 +1249,14 @@ function linearEase(T1, T2, D){
   for(let i = 1; i < p.length; i ++){
     const nTP = new TimingPoint(i*T+T1.t, p[i-1], T1.m, T1.ss, T1.si, T1.v, false, T1.k);
     TP.push(nTP);
-    C[6].notes.push(nTP);
+    C[Math.min(T1.x, T2.x)].notes.push(nTP);
     v = p[i];
   }
   orderTP();
-  C[6].notes.sort((a,b) => a.t-b.t);
+  C[Math.min(T1.x, T2.x)].notes.sort((a,b) => a.t-b.t);
 }
 function sineEase(T1, T2, D){
+  syncTP();
   const B = T1.i*100 || T1.mspb;
   const K = T2.i*100 || T2.mspb - B;
   const T = (T2.t - T1.t)/D;
@@ -1260,11 +1266,11 @@ function sineEase(T1, T2, D){
   for(let i = 1; i < p.length; i ++){
     const nTP = new TimingPoint(i*T+T1.t, p[i-1], T1.m, T1.ss, T1.si, T1.v, false, T1.k);
     TP.push(nTP);
-    C[6].notes.push(nTP);
+    C[Math.min(T1.x, T2.x)].notes.push(nTP);
     v = p[i];
   }
   orderTP();
-  C[6].notes.sort((a,b) => a.t-b.t);
+  C[Math.min(T1.x, T2.x)].notes.sort((a,b) => a.t-b.t);
 }
 
 const extras = {
