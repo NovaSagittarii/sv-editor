@@ -278,6 +278,7 @@ Column.prototype.add = function(note, historyElement) {
       historyElement = [];
       H0.push({a: PLACE, e: historyElement});
     }
+    note.x = this.id;
     historyElement.push(note);
   }
   this.notes.push(note);
@@ -292,6 +293,7 @@ Column.prototype.addBatch = function(notes, historyElement){
   }
   notes.forEach(n => {
     if(historyElement !== null) historyElement.e.push(n);
+    n.x = this.id;
     this.notes.push(n);
   });
   this.notes.sort((a,b) => a.t-b.t);
