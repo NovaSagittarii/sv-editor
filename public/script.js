@@ -25,6 +25,7 @@ const SETTINGS = {
   SHOW_TIMINGPOINTS: true,
   ENABLE_PNOTES: true,
   FAKE_OFFSET: 2000,
+  HISTORY_LIMIT: 100,
 }
 
 const MODE_NAMES = ["SELECT", "NOTE", "LNOTE"];
@@ -37,9 +38,22 @@ let sN = null;  // selectedNote
 let NS = {}; // Note Selection
 let NSl = 0; // Note Selection size (length?)
 let clipboard = [];
+const H0 = []; // H I S T O R Y (after a year it is finally implemented) undo stack
+const H1 = []; // history redo stack
 let _nid = 1;
 const mapdata = {};
 const keys = {};
+
+function EmptyHistoryNode(type){
+  this.a = type;
+  this.e = [];
+  pushHistory(this);
+}
+function pushHistory(historyNode){
+  H0.push(historyNode);
+  H1.splice(0);
+  if(H0.length > SETTINGS.HISTORY_LIMIT) H0.shift();
+}
 
 const COLUMN_FILL = "#000";
 const DSTROKE = ["#FFF", "#F00", "#44F", "#CC0", "#777", "#C800C8", "#8C008C", "#777", "#FAA", "#FBB", "#AFF", "#4ED", "#AAA", "#555"];
@@ -150,8 +164,13 @@ class Note {
     if(!NS[this._id]) NSl ++;
     NS[this._id] = this;
   }
-  deselect(){
+  deselect(historyElement){
+    console.log(historyElement);
     if(NS[this._id]) NSl --;
+    if(historyElement !== null){
+      if(!historyElement) historyElement = new EmptyHistoryNode(REMOVE);
+      historyElement.e.push(this);
+    }
     delete NS[this._id]; // remove from NoteSelection
   }
   selected(){
@@ -173,7 +192,7 @@ Note.fromString = function(datastring, mode){
   }
 }
 TimingPoint.prototype.select = Note.prototype.select;
-TimingPoint.prototype.deselect = Note.prototype.select;
+TimingPoint.prototype.deselect = Note.prototype.deselect;
 TimingPoint.prototype.selected = Note.prototype.selected;
 TimingPoint.prototype.clone = Note.prototype.clone;
 class PNote extends Note {
@@ -252,6 +271,31 @@ Column.prototype.draw = function() {
   strokeWeight(1);
   rect(this.x, 300, this.w, height*2);
 };
+const PLACE = 0, REMOVE = 1;
+Column.prototype.add = function(note, historyElement) {
+  if(historyElement !== null){
+    if(!historyElement){
+      historyElement = [];
+      H0.push({a: PLACE, e: historyElement});
+    }
+    historyElement.push(note);
+  }
+  this.notes.push(note);
+  this.notes.sort((a,b) => a.t-b.t);
+};
+Column.prototype.addBatch = function(notes, historyElement){
+  if(historyElement !== null){
+    if(!historyElement){
+      historyElement = new EmptyHistoryNode(PLACE);
+      H0.push(historyElement);
+    }
+  }
+  notes.forEach(n => {
+    if(historyElement !== null) historyElement.e.push(n);
+    this.notes.push(n);
+  });
+  this.notes.sort((a,b) => a.t-b.t);
+};
 Column.prototype.drawNotes = function() {
   noStroke();
   fill(0);
@@ -325,7 +369,7 @@ Column.prototype.drawNotes = function() {
       if(this.mouseOver() && Math.abs(mouseY - YRP + this.thd2) < this.thd2){
         if(mp == 1 && M === MODE_SELECT){
           sN = [N, this.id, true];
-          if(!NSl || keys[17]) N[N.selected() ? "deselect" : "select"]();
+          if(!NSl || keys[17]) N[N.selected() ? "deselect" : "select"](null);
         }
         if(mp == 3){
           this.notes.splice(j, 1);
@@ -370,7 +414,7 @@ Column.prototype.drawNotes = function() {
           if(mouseY < YHB_S && mouseY > YHB_E){
             if(mp == 1 && M === MODE_SELECT){
               sN = [N, this.id, true, (mouseY < YHB_E+this.th)+0]; // sN[3] if the tail is selected
-              if(!NSl || keys[17]) N[N.selected() ? "deselect" : "select"]();
+              if(!NSl || keys[17]) N[N.selected() ? "deselect" : "select"](null);
             }
             if(mp == 3){
               N.deselect();
@@ -403,7 +447,7 @@ Column.prototype.drawNotes = function() {
         if(this.mouseOver() && Math.abs(mouseY - YRP + this.thd2) < this.thd2){
           if(mp == 1 && M === MODE_SELECT){
             sN = [N, this.id, true];
-            if(!NSl || keys[17]) N[N.selected() ? "deselect" : "select"]();
+            if(!NSl || keys[17]) N[N.selected() ? "deselect" : "select"](null);
           }
           if(mp == 3){
             N.deselect();
@@ -438,26 +482,30 @@ Column.prototype.checkPlacement = function(){
         const nTP = new TimingPoint(t, lTP.i ? 1 : lTP.mspb, lTP.m, lTP.ss, lTP.si, lTP.v, false, lTP.k);
         TP.push(nTP);
         orderTP()
-        this.notes.push(nTP);
+        // this.notes.push(nTP);
+        this.add(nTP);
       }else{
-        this.notes.push(new Note(this.id, null, t, 0));
+        // this.notes.push(new Note(this.id, null, t, 0));
+        this.add(new Note(this.id, null, t, 0));
       }
-      this.notes.sort((a,b) => a.t-b.t);
+      // this.notes.sort((a,b) => a.t-b.t);
       mp = false;
     }
     if((M === MODE_PLACE_LONG_NOTE || (M === MODE_PLACE_NOTE && keys[16])) && mr == 1 && !this.type){
       const t = (Math[SETTINGS.SNAPPING_MODE](( (mpMS-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
       const t_e = (Math[SETTINGS.SNAPPING_MODE](( (mouseMS-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
       console.log(t, t_e);
-      this.notes.push(new Note(this.id, null, t, 128, 0, t_e));
-      this.notes.sort((a,b) => a.t-b.t);
+      // this.notes.push(new Note(this.id, null, t, 128, 0, t_e));
+      this.add(new Note(this.id, null, t, 128, 0, t_e));
+      // this.notes.sort((a,b) => a.t-b.t);
       mr = false;
     }
     if(M === MODE_PLACE_FAKE_NOTE && mp == 1 && !this.type){
       const t = (Math[SETTINGS.SNAPPING_MODE](( (mpMS-(to % (mspb/d))) /mspb)*d)*mspb)/d + (to % (mspb/d));
       console.log("set FNote at " + t);
-      this.notes.push(new NaNLNote(this.id, t));
-      this.notes.sort((a,b) => a.t-b.t);
+      // this.notes.push(new NaNLNote(this.id, t));
+      // this.notes.sort((a,b) => a.t-b.t);
+      this.add(new NaNLNote(this.id, t));
       mp = false;
     }
 
@@ -895,13 +943,14 @@ async function keyPressed(){
     case 38: d = divisors[divisors.indexOf(d)+1] || d; break; // UP
     case 40: d = divisors[divisors.indexOf(d)-1] || d; break; // DOWN
     case 46: // Del ete
+      var hist = new EmptyHistoryNode(REMOVE);
       C.forEach(c => {
         if(c.withinTS()){
           for(let i = c.notes.length-1; i >= 0; i --){
             const n = c.notes[i];
             if(n.withinTS()){
               c.notes.splice(i, 1);
-              n.deselect();
+              n.deselect(hist);
               if(c.type) TP.splice(TP.indexOf(n), 1);
             }
           }
@@ -938,14 +987,16 @@ async function keyPressed(){
           const offset = currentTime-clipboardFirst;
           const clipboard_offset = clipboardObjects.map(c => c.length ? c.map(n => {n.t += offset; n._t += offset; return n}) : []);
           // console.log(clipboard_offset);
+          var hist = new EmptyHistoryNode(PLACE);
           C.map(c => {
             const N = clipboard_offset[c.id];
-            c.notes.push(...N);
+            // c.notes.push(...N);
+            c.addBatch(N, hist);
             if(c.type){
               TP.push(...N);
               orderTP()
             }
-            c.notes.sort((a,b) => a.t-b.t);
+            // c.notes.sort((a,b) => a.t-b.t);
           });
         }
       }catch(err){
@@ -954,6 +1005,7 @@ async function keyPressed(){
       break;
     case 88: // X cut
       if(keys[17]){
+        var hist = new EmptyHistoryNode(REMOVE);
         clipboard = C.map(c => c.withinTS() ? c.notes.filter(n => NS[n._id]).map(n => n.export('.osu', c)) : []);
         C.forEach(c => {
           if(c.withinTS()){
@@ -961,13 +1013,49 @@ async function keyPressed(){
               const n = c.notes[i];
               if(n.withinTS()){
                 c.notes.splice(i, 1);
-                n.deselect();
+                n.deselect(hist);
                 if(c.type) TP.splice(TP.indexOf(n), 1);
               }
             }
           }
         });
         if(tp >= TP.length) tp = TP.length-1; // make sure it doesnt access deleted timingpoints
+      }
+      break;
+    case 90: // Z undo/redo
+      if(keys[17]){ // Ctrl
+        const action = keys[16] ? H1.pop() : H0.pop();
+        console.log(keys[16] ? "redo" : "undo", action);
+        if(action === undefined) return false;
+        if((action.a === PLACE) && (!keys[16])){
+          console.log("removal");
+          let k = {};
+          action.e.forEach(n => k[n._id] = true);
+          C.forEach(c => {
+            for(let i = c.notes.length-1; i >= 0; i --){
+              const n = c.notes[i];
+              if(k[n._id]){
+                c.notes.splice(i, 1);
+                n.deselect(null);
+                if(c.type) TP.splice(TP.indexOf(n), 1);
+              }
+            }
+          });
+          if(tp >= TP.length) tp = TP.length-1;
+        }else{
+          console.log("add");
+          action.e.forEach(n => {
+            C[n.x].notes.push(n)
+            n.select();
+            if(C[n.x].type){
+              TP.push(n);
+            }
+          });
+          orderTP();
+          C.forEach(c => c.notes.sort((a,b) => a.t-b.t));
+        }
+        if(keys[16]) H0.push(action);
+        else H1.push(action);
       }
       break;
     case 189: // -
@@ -1132,7 +1220,8 @@ async function parseFile(file){
       if(e.length < 7) throw "broken tp";
       const nTP = new TimingPoint(...e);
       TP.push(nTP);
-      C[Difficulty.CircleSize/* + TPC%3*/].notes.push(nTP);
+      // C[Difficulty.CircleSize/* + TPC%3*/].notes.push(nTP);
+      C[Difficulty.CircleSize/* + TPC%3*/].add(nTP, null);
       TPC ++;
     } catch (error) {
       console.warn("Invalid note format:", e, '\n', error);
@@ -1142,7 +1231,8 @@ async function parseFile(file){
     /* x,y,time,type,hitSound,endTime:extras */
     try {
       const nNote = Note.fromString(e, '.osu');
-      C[Math.floor(nNote.x / ColumnWidth)].notes.push(nNote);
+      // C[Math.floor(nNote.x / ColumnWidth)].notes.push(nNote);
+      C[Math.floor(nNote.x / ColumnWidth)].add(nNote, null);
     } catch (error) {
       console.warn("Invalid note format:", e, '\n', error);
     }
@@ -1246,14 +1336,17 @@ function linearEase(T1, T2, D){
   const p = [];
   for(let i = 1; i <= D; i ++) p.push(K*i/D+B);
   let v = p[0];
+  const A = [];  // arraymaprequirestoomuchthinking lol
   for(let i = 1; i < p.length; i ++){
     const nTP = new TimingPoint(i*T+T1.t, p[i-1], T1.m, T1.ss, T1.si, T1.v, false, T1.k);
     TP.push(nTP);
-    C[Math.min(T1.x, T2.x)].notes.push(nTP);
+    // C[Math.min(T1.x, T2.x)].notes.push(nTP);
+    A.push(nTP);
     v = p[i];
   }
+  C[Math.min(T1.x, T2.x)].addBatch(A);
   orderTP();
-  C[Math.min(T1.x, T2.x)].notes.sort((a,b) => a.t-b.t);
+  // C[Math.min(T1.x, T2.x)].notes.sort((a,b) => a.t-b.t);
 }
 function sineEase(T1, T2, D){
   syncTP();
@@ -1263,14 +1356,17 @@ function sineEase(T1, T2, D){
   const p = [];
   for(let i = 1; i <= D; i ++) p.push(K*((Math.cos((i/D-1)*Math.PI)+1)/2)+B);
   let v = p[0];
+  const A = [];  // arraymaprequirestoomuchthinking lol
   for(let i = 1; i < p.length; i ++){
     const nTP = new TimingPoint(i*T+T1.t, p[i-1], T1.m, T1.ss, T1.si, T1.v, false, T1.k);
     TP.push(nTP);
-    C[Math.min(T1.x, T2.x)].notes.push(nTP);
+    // C[Math.min(T1.x, T2.x)].notes.push(nTP);
+    A.push(nTP);
     v = p[i];
   }
+  C[Math.min(T1.x, T2.x)].addBatch(A);
   orderTP();
-  C[Math.min(T1.x, T2.x)].notes.sort((a,b) => a.t-b.t);
+  // C[Math.min(T1.x, T2.x)].notes.sort((a,b) => a.t-b.t);
 }
 
 function multiplicativeMerge(){
@@ -1302,17 +1398,20 @@ function multiplicativeMerge(){
       const n = c.notes[i];
       if(NS[n._id]){
         c.notes.splice(i, 1);
-        n.deselect();
+        n.deselect(null);
         TP.splice(TP.indexOf(n), 1);
       }
     }
   });
+  const A = [];
   for(let i = 0; i < $tp.length; i ++){
     const nTP = new TimingPoint($tp[i].t, $tp[i].sv, temp.m, temp.ss, temp.si, temp.v, false, temp.k);
     TP.push(nTP);
-    $C[0].notes.push(nTP);
+    // $C[0].notes.push(nTP);
+    A.push(nTP);
   }
-  $C[0].notes.sort((a,b) => a.t-b.t);
+  // $C[0].notes.sort((a,b) => a.t-b.t);
+  $C[0].addBatch(A);
   orderTP();
 }
 
@@ -1348,7 +1447,7 @@ const extras = {
           const n = c.notes[i];
           if(n.selected()){
             c.notes.splice(i, 1);
-            n.deselect();
+            n.deselect(null);
             if(c.type) TP.splice(TP.indexOf(n), 1);
           }
         }
