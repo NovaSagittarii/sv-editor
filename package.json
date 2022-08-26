@@ -17,7 +17,7 @@
   },
   "homepage": "https://github.com/NovaSagittarii/sv-editor#readme",
   "dependencies": {
-    "jszip": "^3.2.2",
+    "jszip": "^3.7.0",
     "wavesurfer.js": "^3.3.1"
   },
   "devDependencies": {},
