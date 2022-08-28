@@ -1,1 +1,15 @@
 * { margin: 0; padding: 0; }
+
+.moveable-point {
+  position: absolute;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: inline-block;
+  background-color: #bbb;
+  opacity: 0.4;
+  transform: translate(-50%,-50%);
+}
+.moveable-point:hover {
+  opacity: 1;
+}
