@@ -5,6 +5,9 @@ class Note {
     // this.hs = 0;
     // this.sample
   }
+  getEnd(){
+    return this.t;
+  }
 }
 
 export default Note;

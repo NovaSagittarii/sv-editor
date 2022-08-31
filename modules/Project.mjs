@@ -21,6 +21,10 @@ height:100vh;`;
     );
     const dynamic = this.dynamicStage = new PIXI.Container();
     this.t = 0;
+    this.prevSnap = 0; // if we're gonna be rendering measurelines might as well use them :D
+    this.nextSnap = 0;
+    this.prevMeasure = 0;
+    this.nextMeasure = 0;
     this.z = 0.01;
     this.subdivisions = 4;
     app.view.addEventListener('wheel', e => {
@@ -29,14 +33,19 @@ height:100vh;`;
       if(e.ctrlKey){
         this.setTimeScale(this.z = up ? (this.z*2) : (this.z/2));
       }else{
-        this.setTime(Math.max(0, this.t + (up ? -1 : 1)*1000));
+        // if lines arent rendered completely cuz its zoomed out too much just use 1 second default (no ternary cuz thats unreadable)
+        if(this.lines[this.lines.length-1].t < this.t){
+          this.setTime(Math.max(0, this.t + (up ? -1 : 1)*1000*(e.shiftKey ? 10 : 1)));
+        }else{
+          this.setTime(Math.max(0, this[(!up?"next":"prev")+(!e.shiftKey?"Snap":"Measure")]));
+        }
       }
       e.preventDefault();
     });
 
     // app.view.addEventListener('keydown', e => { // keydown only fires on contenteditable stuff
     document.body.addEventListener('keydown', e => {
-      console.log(e.keyCode);
+      if(e.keyCode>=32) console.log(e.keyCode);
       this.songAudio = this.parent.songAudio;
       switch(e.keyCode){
         case 32: // space
@@ -64,7 +73,17 @@ height:100vh;`;
       return n;
     });
 
+    this.svColumns = linked.svColumns.map((svColumn, i) => {
+      const col = Rendered.from(svColumn);
+      col.graphics.position.x = 400+i*100;
+      dynamic.addChild(col.graphics);
+      return col;
+    });
+
     let line = new Rendered.Line().graphics;
+    line.position.y = 1;
+    line.scale.y = 3;
+    line.alpha = 0.8;
 
     this.setTime();
     app.stage.addChild(dynamic, line);
@@ -86,13 +105,17 @@ height:100vh;`;
       i ++;
     }
     let t = this.t - 100/this.z;  // should be very bottom, y=zt; t=y/z
+    // let prevTime = 0; // TODO: avoid rendering if they're too close
+    // let prevY = 0;
     let mspb = 60000 / currentTimingPoint.bpm;
     t = Math.floor(t / mspb) * mspb + (currentTimingPoint.t)%mspb;
     let k = 0;
     let jStart = 0;
+    this.nextSnap = this.nextMeasure = 0;
     this.lines.forEach((line, j) => {
       const J = j - jStart;
       let time = t + 60000 / currentTimingPoint.bpm / this.subdivisions * J;
+      let truncatedTime = ~~time;
       if(time > this.parent.timingPoints[i+1]?.t){
         i ++;
         currentTimingPoint = this.parent.timingPoints[i];
@@ -100,6 +123,12 @@ height:100vh;`;
       }
       line.setType(Rendered.Line.colorSchemes[this.subdivisions][J % this.subdivisions]);
       line.setPosition(time, this.z);
+      if(time < this.t-1) this.prevSnap = truncatedTime;
+      if(time > this.t+1 && !this.nextSnap) this.nextSnap = truncatedTime;
+      if(J % this.subdivisions === 0){
+        if(time < this.t-1) this.prevMeasure = truncatedTime;
+        if(time > this.t+1 && !this.nextMeasure) this.nextMeasure = truncatedTime;
+      } // to get all measure snaps: this.lines.map(l => l.t)
     });
   }
   setTimeScale(z){
@@ -108,6 +137,7 @@ height:100vh;`;
     this.setTime(this.t + this.t * (z-this.z) / z);
     this.z = z;
     this.notes.forEach(n => n.setTimeScale(z));
+    this.svColumns.forEach(svColumn => svColumn.setTimeScale(z));
   }
   syncTimeToAudio(){
     if(!this.songAudio) throw "audio file not found";

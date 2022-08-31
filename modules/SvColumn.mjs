@@ -10,3 +10,4 @@ class SvColumn {
 }
 
 export { SvColumn };
+export default SvColumn;

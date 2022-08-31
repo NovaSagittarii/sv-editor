@@ -89,7 +89,7 @@ function decode(text){
   let baseBpmDuration = 0;
   const start = project.notes[0].t;
   let current = start;
-  const end = project.notes[project.notes.length-1].t;
+  const end = project.notes[project.notes.length-1].getEnd();
   let prevBpm = null;
   for(const {t, bpm} of project.timingPoints.concat({t:end, bpm:0})){
     let x = prevBpm || bpm;
@@ -103,10 +103,11 @@ function decode(text){
     prevBpm = bpm;
   }
   console.log(bpms, baseBpm); // WARNING : might be broken but works good enough for now
+  let firstTimingPoint = project.timingPoints[0].t;
   globalSvBlock.scaleX(1/baseBpm);
-  globalSvBlock.offsetT(-start); // NOTE : might be okay to keep original offsets
-  globalSvBlock.start = start;
-  globalSvBlock.duration = end-start;
+  globalSvBlock.offsetT(-firstTimingPoint); // NOTE : might be okay to keep original offsets
+  globalSvBlock.t = firstTimingPoint;
+  globalSvBlock.duration = end-firstTimingPoint;
   project.svColumns[0].addBlock(globalSvBlock);
   return project;
 }

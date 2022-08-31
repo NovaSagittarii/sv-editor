@@ -1,4 +1,5 @@
 import * as Notes from './Notes.mjs';
+import SvColumn from './SvColumn.mjs';
 
 class RenderedObject {
   constructor(linked){
@@ -7,7 +8,7 @@ class RenderedObject {
   }
   setTimeScale(timeScale){
     // this.z = timeScale;
-    this.graphics.position.y = ~~(-this.parent.t * timeScale);
+    return this.graphics.position.y = ~~(-this.parent.t * timeScale);
   }
 }
 
@@ -46,8 +47,11 @@ class RenderedLine extends RenderedObject {
     g.drawRect(0, 0, 400, 1);
   }
   setPosition(t, z){
-    this.t = t;
-    this.setTimeScale(z);
+    this.t = ~~t;
+    return this.setTimeScale(z);
+  }
+  static calculatePosition(t, z){
+    return (~~t)*z;
   }
 }
 
@@ -91,10 +95,87 @@ class RenderedLongNote extends RenderedObject {
   }
 }
 
-function from(note){
-  if(note instanceof Notes.LongNote) return new RenderedLongNote(note);
-  else if(note instanceof Notes.Note) return new RenderedNote(note);
+class RenderedSvBlock extends RenderedObject {
+  constructor(linked){
+    super(linked);
+    const g = this.graphics = new PIXI.Container();
+    const body = this.graphicsBody = new PIXI.Graphics();
+    body.beginFill(0xffba1a); // hsl(42, 100%, 55%)
+    body.drawRect(0, 0, 50, 1);
+    const tx = this.graphicsLabel = new PIXI.Text("sv:set", { // TODO: maybe use bitmaptext later
+      fontName: "Arial",
+      fontSize: 12,
+      align: "right"
+    }); /* TODO: render other types of sv block */
+    tx.position.y = -tx.height;
+    const line = this.graphicsLine = new PIXI.Graphics();
+    this.renderThumbnail();
+    body.addChild(line);
+    g.addChild(body, tx);
+  }
+  renderThumbnail(){ // the thing shown on the rectangle for the svBlock
+    const l = this.graphicsLine;
+    let x;
+    let y; // should be (t=0)
+    l.lineStyle(1, 0x000000);
+    l.moveTo(x=RenderedSvBlock.mapXToHorizontalPosition(this.parent.func.nodes[0].x), y=0);
+    for(let node of this.parent.func.nodes){
+      // if(-y > 1000) l.lineStyle(1, 0x000000);
+      l.lineTo(x, y=RenderedSvBlock.mapTToVerticalPosition(node.t));
+      l.lineTo(x=RenderedSvBlock.mapXToHorizontalPosition(node.x), y);
+      console.log(x, y);
+    }
+    l.lineTo(x, y=RenderedSvBlock.mapTToVerticalPosition(this.parent.duration));
+    console.log(x, y);
+    this.graphicsLine.scale.y = 1/y;
+  }
+  static mapXToHorizontalPosition(x){
+    return Math.min(Math.max(x*10, 5), 45);
+  }
+  static mapTToVerticalPosition(t){
+    return -t/4;
+  }
+  setTimeScale(timeScale){
+    this.graphics.position.y = -this.parent.t * timeScale;
+    this.graphicsBody.scale.y = -this.parent.duration * timeScale;
+  }
+}
+
+class RenderedSvColumn extends RenderedObject { // more like a container
+  constructor(linked){
+    super(linked);
+    const g = this.graphics = new PIXI.Container();
+    this.blocks = [];
+    linked.blocks.forEach(block => {
+      const b = new RenderedSvBlock(block);
+      this.blocks.push(b);
+      g.addChild(b.graphics);
+    })
+  }
+  addBlock(svBlock){
+    const b = new RenderedSvBlock(svBlock);
+    this.blocks.push(b);
+    g.addChild(b.graphics);
+  }
+  setTimeScale(timeScale){
+    this.blocks.forEach(block => block.setTimeScale(timeScale));
+  }
+}
+
+function from(obj){
+  if(obj instanceof Notes.LongNote) return new RenderedLongNote(obj);
+  else if(obj instanceof Notes.Note) return new RenderedNote(obj);
+  else if(obj instanceof Notes.SvBlock) return new RenderedSvBlock(obj);
+  else if(obj instanceof SvColumn) return new RenderedSvColumn(obj);
   else return null;
 }
 
-export { RenderedLine as Line, RenderedNote as Note, RenderedLongNote as LongNote, from, RenderedObject };
+export {
+  RenderedLine as Line,
+  RenderedNote as Note,
+  RenderedLongNote as LongNote,
+  RenderedSvBlock as SvBlock,
+  RenderedSvColumn as SvColumn,
+  from,
+  RenderedObject
+};

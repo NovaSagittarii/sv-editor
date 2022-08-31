@@ -2,6 +2,12 @@ import { PFunc } from './PFunc.mjs';
 
 const operationEnum = {};
 const operations = {
+  /*
+  Operation: fn(x, y, n)
+    x : current sv
+    y : sv of block being applied
+    n : notes in duration (maybe just all notes)
+  */
   set: (x, y) => x,
   add: (x, y) => x+y,
   subtract: (x, y) => x-y,

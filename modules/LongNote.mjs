@@ -5,6 +5,9 @@ class LongNote extends Note {
     super(x, t);
     this.t$ = endTime; // using end anchor notation from regex for "end time"
   }
+  getEnd(){
+    return this.t$;
+  }
 }
 
 export default LongNote;
