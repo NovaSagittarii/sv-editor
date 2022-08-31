@@ -24,7 +24,7 @@ function measureline(x){
   }
 } // scuffed procedural way to generate them
 for(let i = 1; i < 100; i++) measureline(i);
-console.log(measurelines);
+// console.log(measurelines);
 
 class RenderedLine extends RenderedObject {
   static colorSchemes = measurelines;
@@ -32,11 +32,14 @@ class RenderedLine extends RenderedObject {
   constructor(){
     super();
     this.parent = this;
+    this.type = 1;
     const g = this.graphics = new PIXI.Graphics();
     g.beginFill(0x000000);
     g.drawRect(0, 0, 400, 1);
   }
   setType(i){
+    if(this.type === i) return;
+    this.type = i;
     const g = this.graphics;
     g.clear();
     g.beginFill(RenderedLine.colors[i]);

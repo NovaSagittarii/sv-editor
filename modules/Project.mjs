@@ -34,6 +34,24 @@ height:100vh;`;
       e.preventDefault();
     });
 
+    // app.view.addEventListener('keydown', e => { // keydown only fires on contenteditable stuff
+    document.body.addEventListener('keydown', e => {
+      console.log(e.keyCode);
+      this.songAudio = this.parent.songAudio;
+      switch(e.keyCode){
+        case 32: // space
+          if(this.songAudio.playing()){
+            this.songAudio.pause();
+            app.ticker.remove(this.syncTimeToAudio, this);
+          }else{
+            this.songAudio.seek(this.t/1000);
+            this.songAudio.play();
+            app.ticker.add(this.syncTimeToAudio, this);
+          }
+          break;
+      }
+    });
+
     this.lines = [...new Array(50)].map(x => {
       const line = new Rendered.Line();
       dynamic.addChild(line.graphics);
@@ -91,6 +109,10 @@ height:100vh;`;
     this.z = z;
     this.notes.forEach(n => n.setTimeScale(z));
   }
+  syncTimeToAudio(){
+    if(!this.songAudio) throw "audio file not found";
+    this.setTime(this.songAudio.seek()*1000);
+  }
 }
 
 class Project {
@@ -100,6 +122,7 @@ class Project {
     this.timingPoints = [];
     this.svColumns = [...new Array(5)].map(x => new SvColumn());
     this.editor = null;
+    this.songAudio = null;
   }
   openEditor(){
     this.editor = new ProjectEditor(this);
@@ -107,6 +130,19 @@ class Project {
   closeEditor(){
     this.editor?.destroy();
     this.editor = null;
+  }
+  loadResources(files){
+    const audioFile = files.filter(x => x.name === this.metadata.General.AudioFilename)[0];
+    if(!audioFile) throw "audio file not found!";
+    const reader = new FileReader();
+    reader.addEventListener('load', () => {
+      this.songAudio = new Howl({
+        src: reader.result,
+        format: audioFile.name.split('.').pop().toLowerCase() // always give file extension: this is optional but helps
+      });
+      this.songAudio.once('load', () => console.log("Audio is loaded"));
+    });
+    reader.readAsDataURL(audioFile);
   }
 }
 

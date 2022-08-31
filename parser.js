@@ -7,13 +7,14 @@ let inputFile = document.getElementsByTagName("input")[0];
 let selectFile;
 inputFile.addEventListener('change', event => {
   // console.log(event.srcElement.files);
-  if(event.srcElement.files.length > 0){
+  const files = Array.from(event.srcElement.files);
+  if(files.length > 0){
     selectFile?.remove();
     selectFile = document.createElement('select');
     let defaultOption = document.createElement('option');
       defaultOption.innerText = "(select a file)";
       selectFile.append(defaultOption);
-    Array.from(event.srcElement.files).forEach((file, i) => {
+    files.forEach((file, i) => {
       if(file.name.endsWith('.osu')){
         const option = document.createElement('option');
         option.value = i;
@@ -23,11 +24,12 @@ inputFile.addEventListener('change', event => {
     });
     selectFile.addEventListener('change', () => {
       console.log(selectFile.value);
-      const file = event.srcElement.files[selectFile.value];
+      const file = files[selectFile.value];
       const reader = new FileReader();
       reader.addEventListener('load', () => {
         const data = reader.result;
         const proj = osu.decode(data);
+        proj.loadResources(files);
         console.log(proj);
         project = proj; // expose to global scope
         project.openEditor();
