@@ -1,7 +1,7 @@
 import { Note, LongNote } from './modules/Notes.mjs';
 import * as osu from './modules/codecs/osuCodec.mjs';
 
-console.log(osu);
+// console.log(osu);
 
 let inputFile = document.getElementsByTagName("input")[0];
 let selectFile;
@@ -30,7 +30,8 @@ inputFile.addEventListener('change', event => {
         const proj = osu.decode(data);
         console.log(proj);
         project = proj; // expose to global scope
-        project.svColumns[0].blocks[0].func.openEditor();
+        project.openEditor();
+        // project.svColumns[0].blocks[0].func.openEditor(); // TODO: editor later
       });
       reader.readAsText(file);
       selectFile.remove();

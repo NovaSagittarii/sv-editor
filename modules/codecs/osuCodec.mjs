@@ -66,7 +66,7 @@ function decode(text){
           let n;
           const data = line.split(/[,:]/).map(x => isNaN(x) ? x : +x);
           const col = Math.min(Math.max(Math.floor(data[0] * columnCount / 512), 0), columnCount - 1);
-          if(data[4] < 100){ // rice
+          if(data[3] < 100){ // rice
             n = new Note(col, data[2]);
           } else { // noodle
             n = new LongNote(col, data[2], data[5]);
