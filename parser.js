@@ -33,7 +33,6 @@ inputFile.addEventListener('change', event => {
         console.log(proj);
         project = proj; // expose to global scope
         project.openEditor();
-        // project.svColumns[0].blocks[0].func.openEditor(); // TODO: editor later
       });
       reader.readAsText(file);
       selectFile.remove();

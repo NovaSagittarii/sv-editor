@@ -49,7 +49,7 @@ function decode(text){
             sv = bpm = 60000/mspb;
             if(bpm > 10 && bpm <= 5000) project.timingPoints.push(new TimingPoint(t, bpm, data[2]));
           }else{
-            sv = bpm * (100/mspb); // equivalent bpm speed
+            sv = bpm * Math.min(Math.max(100/mspb, 0.01), 10); // equivalent bpm speed (with osu 0.01-10.00 clamping)
           }
           globalSvBlock.setPoint(t, sv); // WARNING: some jank stuff might happen with points at the same time ??
           break;
@@ -82,6 +82,7 @@ function decode(text){
   // post read processing (maybe move tp processing here if things break)
   sortByTime(project.notes);
   sortByTime(project.timingPoints);
+  sortByTime(globalSvBlock.func.nodes);
   console.log(globalSvBlock);
   // base bpm
   const bpms = {};
@@ -105,10 +106,42 @@ function decode(text){
   console.log(bpms, baseBpm); // WARNING : might be broken but works good enough for now
   let firstTimingPoint = project.timingPoints[0].t;
   globalSvBlock.scaleX(1/baseBpm);
+
+  // normalization
+  const globalNormalizationBlock = new SvBlock(SvBlock.Operation.NORMALIZE, 4);
+  const notePositions = [...new Set(project.notes.map(x => [x.t, x.t$]).flat().filter(x => x !== void 0))].sort((a,b)=>a-b); // splits
+
+  if(notePositions[0] > firstTimingPoint) notePositions.unshift(firstTimingPoint);
+
+  console.log(notePositions);
+
+  const speeds = globalSvBlock.func;
+  for(let i = 0; i < notePositions.length-1; i ++){
+    const normalized = notePositions[i+1] - notePositions[i];
+    const observed = speeds.integrate(notePositions[i], notePositions[i+1]);
+    // console.log(notePositions[i], notePositions[i+1], normalized, observed, observed/normalized);
+    const average = observed/normalized;
+    // globalSvBlock.scaleX(1/average, notePositions[i], notePositions[i+1]); /* TODO: implement this */
+    globalNormalizationBlock.setPoint(notePositions[i]-notePositions[0], average);
+  }
+
   globalSvBlock.offsetT(-firstTimingPoint); // NOTE : might be okay to keep original offsets
   globalSvBlock.t = firstTimingPoint;
   globalSvBlock.duration = end-firstTimingPoint;
-  project.svColumns[0].addBlock(globalSvBlock);
+  globalNormalizationBlock.t = notePositions[0];
+  globalNormalizationBlock.duration = notePositions[notePositions.length-1] - notePositions[0];
+
+  /*const blocks = [globalSvBlock];
+  let splits = [...new Set(project.notes.map(x => [x.t, x.t$]).flat().filter(x => x !== void 0 && x > firstTimingPoint ))].sort((a,b)=>a-b);
+  let prev = null;
+  for(let i = 0; i < splits.length; i += 10){
+    blocks.push(blocks[blocks.length-1].splice(splits[i]-splits[prev]||firstTimingPoint));
+    prev = i;
+  }
+  blocks.forEach(block => project.svColumns[0].addBlock(block));*/
+
+  project.addBlock(globalSvBlock);
+  project.addBlock(globalNormalizationBlock); // TODO: do that [...arguments] thingy
   return project;
 }
 function encode(project){

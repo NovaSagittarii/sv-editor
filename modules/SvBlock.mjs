@@ -20,7 +20,8 @@ Object.keys(operations).forEach(operation => operationEnum[operation.toUpperCase
 
 class SvBlock {
   static Operation = operationEnum;
-  constructor(operation){
+  constructor(operation=SvBlock.Operation.SET, col=0){
+    this.x = col;
     this.operation = operation;
     this.func = new PFunc(this);
     this.t = 0;
@@ -34,7 +35,14 @@ class SvBlock {
   scaleX(k){ this.func.nodes.forEach(node => node.x *= k); }
   scaleT(k){ this.func.nodes.forEach(node => node.t *= k); }
   splice(t){ // cuts off second half from instance and returns it
-
+    if(t < 0 || t > this.duration) throw 'invalid splice range';
+    const remainder = new SvBlock(this.operation);
+    remainder.duration = this.duration - t;
+    remainder.t = this.t + t;
+    remainder.func = this.func.splice(t);
+    remainder.func.linked = remainder;
+    this.duration = t;
+    return remainder;
   }
   applyOnto(otherSvBlock){
 

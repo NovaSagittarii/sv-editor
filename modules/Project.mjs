@@ -1,12 +1,22 @@
 import { Note, LongNote } from './Notes.mjs';
-import { SvColumn } from './SvColumn.mjs';
 import * as Rendered from './PIXIRendering.mjs';
 
 // console.log(Rendered);
 
 class ProjectEditor {
   constructor(linked){
-    this.parent = linked;
+    this.bounds = {
+      noteLeft: 0,
+      noteRight: 400,
+      blockLeft: 400,
+      blockRight: 650,
+      resultLeft: 650,
+      resultRight: 750,
+      liveLeft: 750,
+      liveRight: 1150
+    };
+
+    this.linked = linked;
     this.htmlElement = document.createElement("div");
     this.htmlElement.style = `position: absolute;
 overflow:hidden;
@@ -27,6 +37,34 @@ height:100vh;`;
     this.nextMeasure = 0;
     this.z = 0.01;
     this.subdivisions = 4;
+    /*app.view.addEventListener('mousemove', e => {
+      if(this.mouseOver) this.mouseOver.graphics.tint = 0xFFFFFF;
+      const dy = e.offsetY - (project.editor.app.view.height-100);
+      const t = this.mouseT = this.t - dy/this.z;
+      if(e.offsetX < 400){
+        let mouseCol = Math.floor(e.offsetX/400*this.linked.metadata.Difficulty.CircleSize);
+        console.log(mouseCol, t);
+        for(let note of this.notes){
+          let bottomT = note.linked.t;
+          let topT = note.linked.getEnd() + 40/this.z;
+          if(mouseCol === note.linked.x && t > bottomT && t < topT){
+            this.mouseOver = note;
+            break;
+          }
+        }
+      }else{
+
+      }
+      if(this.mouseOver) this.mouseOver.graphics.tint = 0x555555;
+    });
+    app.view.addEventListener('click', e => {
+      console.log(e.offsetX, e.offsetY);
+      if(e.offsetX < 400){ // notes
+
+      }else if(e.offsetX < 400+50*5){ // sv columns
+
+      }
+    });*/
     app.view.addEventListener('wheel', e => {
       if(e.deltaY === 0) return; // displacement
       let up = e.deltaY < 0;
@@ -37,7 +75,9 @@ height:100vh;`;
         if(this.lines[this.lines.length-1].t < this.t){
           this.setTime(Math.max(0, this.t + (up ? -1 : 1)*1000*(e.shiftKey ? 10 : 1)));
         }else{
-          this.setTime(Math.max(0, this[(!up?"next":"prev")+(!e.shiftKey?"Snap":"Measure")]));
+          if(e.altKey){
+            this.setTime(this.t + (up ? -1 : 1));
+          } else this.setTime(Math.max(0, this[(!up?"next":"prev")+(!e.shiftKey?"Snap":"Measure")]));
         }
       }
       e.preventDefault();
@@ -46,7 +86,7 @@ height:100vh;`;
     // app.view.addEventListener('keydown', e => { // keydown only fires on contenteditable stuff
     document.body.addEventListener('keydown', e => {
       if(e.keyCode>=32) console.log(e.keyCode);
-      this.songAudio = this.parent.songAudio;
+      this.songAudio = this.linked.songAudio;
       switch(e.keyCode){
         case 32: // space
           if(this.songAudio.playing()){
@@ -71,17 +111,14 @@ height:100vh;`;
       const n = Rendered.from(note);
       dynamic.addChild(n.graphics);
       return n;
-    });
+    }); // TODO: implement and use this.addNote instead
 
-    this.svColumns = linked.svColumns.map((svColumn, i) => {
-      const col = Rendered.from(svColumn);
-      col.graphics.position.x = 400+i*100;
-      dynamic.addChild(col.graphics);
-      return col;
-    });
+    this.blocks = [];
+    linked.blocks.forEach(this.addBlock.bind(this));
 
     let line = new Rendered.Line().graphics;
     line.position.y = 1;
+    line.scale.x = (this.bounds.resultRight - this.bounds.noteLeft) / line.width;
     line.scale.y = 3;
     line.alpha = 0.8;
 
@@ -89,6 +126,8 @@ height:100vh;`;
     app.stage.addChild(dynamic, line);
     this.htmlElement.append(app.view);
     document.body.append(this.htmlElement);
+
+    this.setTimeScale(0.32); // syncs everything
   }
   setTime(time){
     if(time !== undefined) this.t = time;
@@ -97,9 +136,9 @@ height:100vh;`;
     this.dynamicStage.position.y = this.t*this.z;
 
     let i = 0;
-    let currentTimingPoint = this.parent.timingPoints[0]; // TODO: use something O(1) instead of O(n)
-    while(i < this.parent.timingPoints.length){
-      const timingPoint = this.parent.timingPoints[i];
+    let currentTimingPoint = this.linked.timingPoints[0]; // TODO: use something O(1) instead of O(n)
+    while(i < this.linked.timingPoints.length){
+      const timingPoint = this.linked.timingPoints[i];
       if(timingPoint.t > this.t) break;
       currentTimingPoint = timingPoint;
       i ++;
@@ -108,40 +147,96 @@ height:100vh;`;
     // let prevTime = 0; // TODO: avoid rendering if they're too close
     // let prevY = 0;
     let mspb = 60000 / currentTimingPoint.bpm;
-    t = Math.floor(t / mspb) * mspb + (currentTimingPoint.t)%mspb;
+    t = Math.floor(t / mspb -1) * mspb + (currentTimingPoint.t)%mspb;
     let k = 0;
     let jStart = 0;
     this.nextSnap = this.nextMeasure = 0;
-    this.lines.forEach((line, j) => {
-      const J = j - jStart;
+    this.lines.forEach((line, j) => { // TODO : lines are kinda buggy on variable bpm stuff
+      let J = j - jStart;
       let time = t + 60000 / currentTimingPoint.bpm / this.subdivisions * J;
       let truncatedTime = ~~time;
-      if(time > this.parent.timingPoints[i+1]?.t){
+      while(time > this.linked.timingPoints[i+1]?.t){
         i ++;
-        currentTimingPoint = this.parent.timingPoints[i];
-        t = currentTimingPoint.t;
+        currentTimingPoint = this.linked.timingPoints[i];
+        time = t = currentTimingPoint.t;
+        truncatedTime = ~~time;
+        jStart = j;
+        J = 0;
       }
       line.setType(Rendered.Line.colorSchemes[this.subdivisions][J % this.subdivisions]);
       line.setPosition(time, this.z);
-      if(time < this.t-1) this.prevSnap = truncatedTime;
-      if(time > this.t+1 && !this.nextSnap) this.nextSnap = truncatedTime;
+      if(time < this.t-1.5) this.prevSnap = truncatedTime;
+      if(time > this.t+1.5 && !this.nextSnap) this.nextSnap = truncatedTime;
       if(J % this.subdivisions === 0){
-        if(time < this.t-1) this.prevMeasure = truncatedTime;
-        if(time > this.t+1 && !this.nextMeasure) this.nextMeasure = truncatedTime;
+        if(time < this.t-1.5) this.prevMeasure = truncatedTime;
+        if(time > this.t+1.5 && !this.nextMeasure) this.nextMeasure = truncatedTime;
       } // to get all measure snaps: this.lines.map(l => l.t)
     });
+
+    this.blocks.forEach(b => {
+      const block = b.linked;
+      const svBlockEditor = block.func.editor;
+      if(svBlockEditor && this.t >= block.t && this.t <= block.t+block.duration){ // filter condition
+        svBlockEditor.setTimeScale(this.z);
+        svBlockEditor.setTime(this.t-block.t);
+      }
+      b.graphicsDebugDisplay.text = block.func.evaluate(this.t - block.t).toFixed(3) + 'x';
+      b.graphicsDebugDisplay.position.y = -this.dynamicStage.position.y;
+      b.graphicsDebugDisplay.anchor.set(0, 0);
+    });
+
+    // some tree structure seems appropriate for culling (esp since they dont move around much)
+    if(this.renderedMinT === void 0 || (this.t < this.renderedMinT || this.t > this.renderedMaxT)){
+      this.refreshCulling();
+    }
+  }
+  refreshCulling(){ // return;
+    const viewport = this.app.screen;
+    const minY = viewport.y - 1000;
+    const maxY = viewport.height + 500;
+    this.renderedMinT = this.t - (maxY - (this.app.view.height-100))/this.z;
+    this.renderedMaxT = this.t - (minY + (this.app.view.height-100))/this.z;
+    this.notes.forEach(n => {
+      const bounds = n.graphics.getBounds();
+      n.graphics.renderable = bounds.y+bounds.height>=minY &&
+        bounds.y-bounds.height <= maxY;
+    })
   }
   setTimeScale(z){
+    // y = zt
     /*this.t += this.t * (z-this.z) / z;
     this.app.stage.position.y = this.t*z;*/
     this.setTime(this.t + this.t * (z-this.z) / z);
     this.z = z;
     this.notes.forEach(n => n.setTimeScale(z));
-    this.svColumns.forEach(svColumn => svColumn.setTimeScale(z));
+    this.blocks.forEach(block => block.setTimeScale(z));
+    this.refreshCulling();
   }
   syncTimeToAudio(){
     if(!this.songAudio) throw "audio file not found";
     this.setTime(this.songAudio.seek()*1000);
+  }
+  getNearestLine(t){ // TODO : binary search
+    let newT = t;
+    let diff = Infinity;
+    for(let i = 0; i < this.lines.length; i ++){
+      var newDiff = Math.abs(this.lines[i].t - t);
+      if(newDiff <= diff){
+        diff = newDiff;
+        newT = this.lines[i].t;
+      } else return newT;
+    }
+    return newT;
+  }
+  addNote(note){
+
+  }
+  addBlock(block){
+    const b = Rendered.from(block, this);
+    b.graphics.position.x = this.bounds.blockLeft + 50*block.x;
+    this.dynamicStage.addChild(b.graphics);
+    this.blocks.push(b);
+    return b;
   }
 }
 
@@ -150,7 +245,7 @@ class Project {
     this.metadata = {};
     this.notes = [];
     this.timingPoints = [];
-    this.svColumns = [...new Array(5)].map(x => new SvColumn());
+    this.blocks = [];
     this.editor = null;
     this.songAudio = null;
   }
@@ -173,6 +268,11 @@ class Project {
       this.songAudio.once('load', () => console.log("Audio is loaded"));
     });
     reader.readAsDataURL(audioFile);
+  }
+  addBlock(block){
+    this.blocks.push(block);
+    this.editor?.addBlock(block);
+    // TODO: X shifting if collisions
   }
 }
 

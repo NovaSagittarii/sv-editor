@@ -1,14 +1,33 @@
 import * as Notes from './Notes.mjs';
-import SvColumn from './SvColumn.mjs';
+import SvBlock from './SvBlock.mjs';
+import {OutlineFilter} from './OutlineFilter.mjs';
 
 class RenderedObject {
   constructor(linked){
-    this.parent = linked;
+    this.linked = linked;
+    this.selected = false;
+    this.graphics = null;
     // this.z = 1;
   }
   setTimeScale(timeScale){
     // this.z = timeScale;
-    return this.graphics.position.y = ~~(-this.parent.t * timeScale);
+    return this.graphics.position.y = ~~(-this.linked.t * timeScale);
+  }
+  select(){
+    this.selected = true;
+    if(this.graphics){
+      this.graphics.tint = 0xAADDDD;
+      this.graphics.filters = [new OutlineFilter(1, 0xd69600)];
+    }
+    return this;
+  }
+  deselect(){
+    this.selected = false;
+    if(this.graphics){
+      this.graphics.tint = 0xFFFFFF;
+      this.graphics.filters = [];
+    }
+    return this;
   }
 }
 
@@ -32,7 +51,7 @@ class RenderedLine extends RenderedObject {
   static colors = [null, 0x000000, 0xf26250, 0xb74fa9, 0x37aedc, 0x686868, 0xf8d44f, 0xf8d44f, 0xf8d44f];
   constructor(){
     super();
-    this.parent = this;
+    this.linked = this;
     this.type = 1;
     const g = this.graphics = new PIXI.Graphics();
     g.beginFill(0x000000);
@@ -89,20 +108,30 @@ class RenderedLongNote extends RenderedObject {
   }
   setTimeScale(timeScale){
     // this.z = timeScale;
-    this.graphics.position.y = -this.parent.t * timeScale;
-    this.graphicsTail.position.y = -(this.parent.t$ - this.parent.t) * timeScale;
-    this.graphicsBody.scale.y = -(Math.abs(this.graphicsTail.position.y) - this.graphicsTail.height);
+    this.graphics.position.y = ~~(-this.linked.t * timeScale);
+    this.graphicsTail.position.y = ~~(-(this.linked.t$ - this.linked.t) * timeScale);
+    this.graphicsBody.scale.y = ~~(-(Math.abs(this.graphicsTail.position.y) - this.graphicsTail.height));
   }
 }
 
 class RenderedSvBlock extends RenderedObject {
-  constructor(linked){
+  constructor(linked, baseEditor){
     super(linked);
     const g = this.graphics = new PIXI.Container();
+    // g.filters = [new OutlineFilter(1, 0xd69600)]; // TODO: don't use a filter and just redraw the rect
     const body = this.graphicsBody = new PIXI.Graphics();
     body.beginFill(0xffba1a); // hsl(42, 100%, 55%)
-    body.drawRect(0, 0, 50, 1);
-    const tx = this.graphicsLabel = new PIXI.Text("sv:set", { // TODO: maybe use bitmaptext later
+    // body.lineStyle(1, 0xd69600); // hsl(42, 100%, 42%)
+    body.drawRect(0, 0, 25, 1);
+    body.beginFill(0xefaa0a);
+    body.drawRect(26, 0, 25, 1);
+    body.alpha = 0.5; // to check for overlap
+    this.graphicsDebugDisplay = new PIXI.Text("", {
+      fontName: "Arial",
+      fontSize: 12,
+      align: "center"
+    });
+    const tx = this.graphicsLabel = new PIXI.Text(linked.operation.toString().replace(/^[^\(]*\(|\)$/g,''), { // TODO: maybe use bitmaptext later
       fontName: "Arial",
       fontSize: 12,
       align: "right"
@@ -111,37 +140,48 @@ class RenderedSvBlock extends RenderedObject {
     const line = this.graphicsLine = new PIXI.Graphics();
     this.renderThumbnail();
     body.addChild(line);
-    g.addChild(body, tx);
+    g.addChild(body, tx, this.graphicsDebugDisplay);
+    g.interactive = true;
+    g.on('pointerover', () => body.alpha = 1);
+    g.on('pointerout', () => body.alpha = 0.5);
+    g.on('pointerdown', e => {
+      if(!this.linked.func.editor){
+        this.linked.func.openEditor(this, baseEditor);
+      }else{
+        this.linked.func.closeEditor();
+      }
+    });
   }
   renderThumbnail(){ // the thing shown on the rectangle for the svBlock
     const l = this.graphicsLine;
+    l.clear();
     let x;
     let y; // should be (t=0)
     l.lineStyle(1, 0x000000);
-    l.moveTo(x=RenderedSvBlock.mapXToHorizontalPosition(this.parent.func.nodes[0].x), y=0);
-    for(let node of this.parent.func.nodes){
+    l.moveTo(x=RenderedSvBlock.mapXToHorizontalPosition(this.linked.func.nodes[0].x), y=0);
+    for(let node of this.linked.func.nodes){
       // if(-y > 1000) l.lineStyle(1, 0x000000);
       l.lineTo(x, y=RenderedSvBlock.mapTToVerticalPosition(node.t));
       l.lineTo(x=RenderedSvBlock.mapXToHorizontalPosition(node.x), y);
-      console.log(x, y);
+      // console.log(x, y);
     }
-    l.lineTo(x, y=RenderedSvBlock.mapTToVerticalPosition(this.parent.duration));
-    console.log(x, y);
+    l.lineTo(x, y=RenderedSvBlock.mapTToVerticalPosition(this.linked.duration));
+    // console.log(x, y);
     this.graphicsLine.scale.y = 1/y;
   }
   static mapXToHorizontalPosition(x){
-    return Math.min(Math.max(x*10, 5), 45);
+    return ~~(Math.min(Math.max(x*20, 0), 40)+5);
   }
   static mapTToVerticalPosition(t){
-    return -t/4;
+    return ~~(-t/4);
   }
   setTimeScale(timeScale){
-    this.graphics.position.y = -this.parent.t * timeScale;
-    this.graphicsBody.scale.y = -this.parent.duration * timeScale;
+    this.graphics.position.y = -this.linked.t * timeScale;
+    this.graphicsBody.scale.y = -this.linked.duration * timeScale;
   }
 }
 
-class RenderedSvColumn extends RenderedObject { // more like a container
+/* class RenderedSvColumn extends RenderedObject { // more like a container
   constructor(linked){
     super(linked);
     const g = this.graphics = new PIXI.Container();
@@ -160,13 +200,12 @@ class RenderedSvColumn extends RenderedObject { // more like a container
   setTimeScale(timeScale){
     this.blocks.forEach(block => block.setTimeScale(timeScale));
   }
-}
+} */
 
-function from(obj){
+function from(obj, baseEditor){
   if(obj instanceof Notes.LongNote) return new RenderedLongNote(obj);
   else if(obj instanceof Notes.Note) return new RenderedNote(obj);
-  else if(obj instanceof Notes.SvBlock) return new RenderedSvBlock(obj);
-  else if(obj instanceof SvColumn) return new RenderedSvColumn(obj);
+  else if(obj instanceof Notes.SvBlock) return new RenderedSvBlock(obj, baseEditor);
   else return null;
 }
 
@@ -175,7 +214,7 @@ export {
   RenderedNote as Note,
   RenderedLongNote as LongNote,
   RenderedSvBlock as SvBlock,
-  RenderedSvColumn as SvColumn,
+  // RenderedSvColumn as SvColumn,
   from,
   RenderedObject
 };
