@@ -231,7 +231,7 @@ class PFunc {
     // do desmos stuff here maybe
     let sum = 0;
     let i = 0;
-    for(let t = a; t <= b; t ++){
+    for(let t = a; t < b; t ++){
       while(this.nodes[i+1] && this.nodes[i+1].t <= t) i ++;
       sum += this.nodes[i].x; // this.nodes[i].easing.func(this.nodes[i].x, this.nodes[i+1]?.x, (t-this.nodes[i].t)/(this.nodes[i+1]?.t-this.nodes[i].t)); // buggy easing code
     }
