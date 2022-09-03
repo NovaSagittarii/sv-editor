@@ -56,6 +56,7 @@ class RenderedLine extends RenderedObject {
     const g = this.graphics = new PIXI.Graphics();
     g.beginFill(0x000000);
     g.drawRect(0, 0, 400, 1);
+    g.endFill();
   }
   setType(i){
     if(this.type === i) return;
@@ -64,6 +65,7 @@ class RenderedLine extends RenderedObject {
     g.clear();
     g.beginFill(RenderedLine.colors[i]);
     g.drawRect(0, 0, 400, 1);
+    g.endFill();
   }
   setPosition(t, z){
     this.t = ~~t;
@@ -75,31 +77,43 @@ class RenderedLine extends RenderedObject {
 }
 
 class RenderedNote extends RenderedObject {
-  constructor(linked){
+  constructor(linked, editor){
     super(linked);
-    const g = this.graphics = new PIXI.Graphics();
-    g.beginFill(0x0077e6);
-    g.drawRect(0, 0, 100, 40);
-
+    let g;
+    if(editor){
+      g = this.graphics = new PIXI.Sprite(editor.sprites.Note);
+    }else{
+      g = this.graphics = new PIXI.Graphics();
+      g.beginFill(0x0077e6);
+      g.drawRect(0, 0, 100, 40);
+    }
     g.pivot.set(0, g.height); // nudge up
     g.position.set(linked.x*100, -linked.t);
   }
 }
 
 class RenderedLongNote extends RenderedObject {
-  constructor(linked){
+  constructor(linked, editor){
     super(linked);
     const g = this.graphics = new PIXI.Container();
-    const head = new PIXI.Graphics();
-    head.beginFill(0x00e699);
-    head.drawRect(0, 0, 100, 40);
-    const tail = this.graphicsTail = new PIXI.Graphics();
-    tail.beginFill(0x00b87a);
-    tail.drawRect(0, 0, 100, 40);
+    let head, tail, body;
+    if(editor){
+      head = new PIXI.Sprite(editor.sprites.LongNoteHead);
+      tail = new PIXI.Sprite(editor.sprites.LongNoteTail);
+      body = new PIXI.Sprite(editor.sprites.LongNoteBody);
+    }else{
+      head = new PIXI.Graphics();
+      head.beginFill(0x00e699);
+      head.drawRect(0, 0, 100, 40);
+      tail = this.graphicsTail = new PIXI.Graphics();
+      tail.beginFill(0x00b87a);
+      tail.drawRect(0, 0, 100, 40);
+      body = this.graphicsBody = new PIXI.Graphics();
+      body.beginFill(0x00b87a);
+      body.drawRect(15, 0, 70, 1);
+    }
+
     tail.position.y = -(linked.t$ - linked.t);
-    const body = this.graphicsBody = new PIXI.Graphics();
-    body.beginFill(0x00b87a);
-    body.drawRect(15, 0, 70, 1);
     body.scale.y = tail.position.y - head.height - tail.height;
 
     g.addChild(body, head, tail);
@@ -124,8 +138,8 @@ class RenderedSvBlock extends RenderedObject {
     // body.lineStyle(1, 0xd69600); // hsl(42, 100%, 42%)
     body.drawRect(0, 0, 25, 1);
     body.beginFill(0xefaa0a);
-    body.drawRect(26, 0, 25, 1);
-    body.alpha = 0.5; // to check for overlap
+    body.drawRect(25, 0, 25, 1);
+    body.alpha = 0.8; // to check for overlap
     this.graphicsDebugDisplay = new PIXI.Text("", {
       fontName: "Arial",
       fontSize: 12,
@@ -143,7 +157,7 @@ class RenderedSvBlock extends RenderedObject {
     g.addChild(body, tx, this.graphicsDebugDisplay);
     g.interactive = true;
     g.on('pointerover', () => body.alpha = 1);
-    g.on('pointerout', () => body.alpha = 0.5);
+    g.on('pointerout', () => body.alpha = 0.8);
     g.on('pointerdown', e => {
       if(!this.linked.func.editor){
         this.linked.func.openEditor(this, baseEditor);
@@ -203,8 +217,8 @@ class RenderedSvBlock extends RenderedObject {
 } */
 
 function from(obj, baseEditor){
-  if(obj instanceof Notes.LongNote) return new RenderedLongNote(obj);
-  else if(obj instanceof Notes.Note) return new RenderedNote(obj);
+  if(obj instanceof Notes.LongNote) return new RenderedLongNote(obj, baseEditor);
+  else if(obj instanceof Notes.Note) return new RenderedNote(obj, baseEditor);
   else if(obj instanceof Notes.SvBlock) return new RenderedSvBlock(obj, baseEditor);
   else return null;
 }

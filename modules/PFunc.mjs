@@ -242,6 +242,16 @@ class PFunc {
     while(this.nodes[i+1] && this.nodes[i+1].t <= t) i ++;
     return this.nodes[i].easing.func(this.nodes[i].x, this.nodes[i+1]?.x, (t-this.nodes[i].t)/(this.nodes[i+1]?.t-this.nodes[i].t));
   }
+  // garbage code
+  *range(start=0, end=this.linked.duration){
+    let i = 0;
+    let t = start;
+    while(t < end){
+      while(this.nodes[i+1] && this.nodes[i+1].t <= t) i ++;
+      yield [t, this.nodes[i].easing.func(this.nodes[i].x, this.nodes[i+1]?.x, (t-this.nodes[i].t)/(this.nodes[i+1]?.t-this.nodes[i].t)), (this.nodes[i+1]?.t||this.linked.duration) - this.nodes[i].t];
+      t++; // i cant believe i forgot this line the first time and didnt notice it... smh infinite generator loop
+    }
+  }
   openEditor(renderedSvBlock, baseEditor){ // why look for a framework or library when you can do it yourself ... it's a cool exercise tho
     this.editor = new PFuncEditor(this, renderedSvBlock, baseEditor);
     if(baseEditor){
@@ -253,10 +263,22 @@ class PFunc {
     this.editor?.destroy();
     this.editor = null;
   }
+  setValue(t, x){ // for keeping the function simpler if extra x vals dont matter
+    if(this.evaluate(t) !== x){
+      this.setPoint(t, x);
+    }
+  }
   setPoint(t, x){
     const n = this.nodes.filter(n => n.t === t)[0];
     if(n) n.x = x;
-    else this.nodes.push(new PNode(t, x));
+    else{
+      this.nodes.push(new PNode(t, x)); // scuffed insertion to keep sorted
+      this.nodes.sort((a,b) => a.t-b.t);
+      for(let i = 0; i < this.nodes.length; i ++){
+        this.nodes[i].next = this.nodes[i+1] || null;
+        this.nodes[i].prev = this.nodes[i-1] || null;
+      }
+    }
   }
   splice(t){
     if(t < 0) throw 'invalid splice range';
@@ -266,6 +288,17 @@ class PFunc {
     remainder.nodes = [new PNode(t /*t-t=0*/, this.nodes[i-1]?.t || 1)].concat(this.nodes.splice(i));
     remainder.nodes.forEach(node => node.t -= t);
     return remainder;
+  }
+  toLatex(){
+    // for desmos calculations cuz numerical piecewise is terrible for performance (or maybe misusing yield?)
+    // f\left(x\right)=\left\{0<x<1:4,1<x<2:3\right\}
+    let piecewise = "";
+    for(let i = 0; i < this.nodes.length; i ++){
+      const node = this.nodes[i];
+      const end = this.nodes[i+1]?.t||this.linked.duration;
+      piecewise += `${(node.t/1000).toFixed(3)}<x\\le${(end/1000).toFixed(3)}:${Math.min(30, node.x).toFixed(2)},`;
+    }
+    return `f\\left(x\\right)=\\left\\{${piecewise.replace(/,$/, '')}\\right\\}`;
   }
 }
 

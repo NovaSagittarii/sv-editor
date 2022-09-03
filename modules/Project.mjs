@@ -1,5 +1,6 @@
 import { Note, LongNote } from './Notes.mjs';
 import * as Rendered from './PIXIRendering.mjs';
+import SpriteRenderer from './PIXIRenderedSprites.mjs'
 
 // console.log(Rendered);
 
@@ -29,6 +30,7 @@ height:100vh;`;
         resolution: 1
       }
     );
+    this.sprites = new SpriteRenderer(app);
     const dynamic = this.dynamicStage = new PIXI.Container();
     this.t = 0;
     this.prevSnap = 0; // if we're gonna be rendering measurelines might as well use them :D
@@ -181,7 +183,7 @@ height:100vh;`;
         svBlockEditor.setTime(this.t-block.t);
       }
       b.graphicsDebugDisplay.text = block.func.evaluate(this.t - block.t).toFixed(3) + 'x';
-      b.graphicsDebugDisplay.position.y = -this.dynamicStage.position.y;
+      b.graphicsDebugDisplay.position.y = -this.dynamicStage.position.y - b.graphics.position.y;
       b.graphicsDebugDisplay.anchor.set(0, 0);
     });
 
@@ -273,6 +275,13 @@ class Project {
     this.blocks.push(block);
     this.editor?.addBlock(block);
     // TODO: X shifting if collisions
+  }
+  calculateSpeedOutput(){
+    let _start = performance.now();
+    this.blocks.sort((a,b) => a.x-b.x || a.t-b.t); // TODO : check for collisions ?? (currently assumes no collision)
+    this.speed = [...new Array(this.notes[this.notes.length-1].getEnd())].map(() => 1);
+    for(const block of this.blocks) block.applyOnto(this.speed);
+    console.log("== total export time", 0|(performance.now()-_start), "ms")
   }
 }
 

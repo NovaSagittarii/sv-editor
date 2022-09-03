@@ -121,7 +121,7 @@ function decode(text){
     const observed = speeds.integrate(notePositions[i], notePositions[i+1]);
     // console.log(notePositions[i], notePositions[i+1], normalized, observed, observed/normalized);
     const average = observed/normalized;
-    // globalSvBlock.scaleX(1/average, notePositions[i], notePositions[i+1]); /* TODO: implement this */
+    // globalSvBlock.scaleX(1/average, notePositions[i]-notePositions[0], notePositions[i+1]-notePositions[0]);
     globalNormalizationBlock.setPoint(notePositions[i]-notePositions[0], average);
   }
 
