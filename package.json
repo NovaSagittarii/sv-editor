@@ -1,0 +1,29 @@
+{
+  "name": "sv-editor2",
+  "version": "1.0.0",
+  "description": "another osu mania editor but it's designed for an easier SV editing experience, now with more features and for practice with ES modules, howler and pixiJS :^)",
+  "main": "parser.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NovaSagittarii/sv-editor.git"
+  },
+  "author": "NovaSagittarii",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/NovaSagittarii/sv-editor/issues"
+  },
+  "homepage": "https://github.com/NovaSagittarii/sv-editor#readme",
+  "dependencies": {
+    "@pixi/filter-outline": "^4.2.0"
+  },
+  "devDependencies": {
+    "webpack": "^5.74.0",
+    "webpack-cli": "^4.10.0"
+  }
+}
