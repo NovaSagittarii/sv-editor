@@ -242,7 +242,7 @@ class PFunc {
     while(this.nodes[i+1] && this.nodes[i+1].t <= t) i ++;
     return this.nodes[i].easing.func(this.nodes[i].x, this.nodes[i+1]?.x, (t-this.nodes[i].t)/(this.nodes[i+1]?.t-this.nodes[i].t));
   }
-  // garbage code
+  // garbage code (the real garbage was the infinite loop)
   *range(start=0, end=this.linked.duration){
     let i = 0;
     let t = start;
@@ -253,6 +253,7 @@ class PFunc {
     }
   }
   openEditor(renderedSvBlock, baseEditor){ // why look for a framework or library when you can do it yourself ... it's a cool exercise tho
+    if(this.editor) throw 'pfunc editor already opened';
     this.editor = new PFuncEditor(this, renderedSvBlock, baseEditor);
     if(baseEditor){
       this.editor.setTime(baseEditor.t);

@@ -39,7 +39,8 @@ class SvBlock {
   }
   offsetT(k){ this.func.nodes.forEach(node => node.t += k); }
   scaleX(k, a, b){
-    if(a && b){
+    if(a !== void 0 && b !== void 0){
+      b -= 1;
       this.func.setPoint(a, this.func.evaluate(a)*k);
       this.func.setPoint(b, this.func.evaluate(b));
       for(const node of this.func.nodes)
@@ -66,7 +67,7 @@ class SvBlock {
     //let velocityArray
     let _start = performance.now(), _prep = 0, _apply = 0, _ct = 0;
     const nodes = this.func.nodes;
-    for(let i = 0; i < nodes.length; i ++){
+    for(let i = 0; i < nodes.length; i ++){ // NOTE TODO : handle decimal point times!!!
       let node = nodes[i];
       let start = node.t + this.t;
       let end = (nodes[i+1]?.t || this.duration) + this.t;
@@ -92,7 +93,8 @@ class SvBlock {
       }
       _prep += performance.now() - _start;
       _start = performance.now();
-      for(let t = start; t < end; t ++){
+      if(i < 10) console.log(start, end, y);
+      for(let t = Math.round(start); t < end; t ++){
         velocityArray[t] = func(velocityArray[t], y);
       }
       _apply += performance.now() - _start;

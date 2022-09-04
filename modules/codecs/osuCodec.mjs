@@ -3,6 +3,29 @@ import { Note, LongNote } from '../Notes.mjs';
 import { TimingPoint } from '../TimingPoint.mjs';
 import { SvBlock } from '../SvBlock.mjs';
 
+function calculateBaseBpm(project){
+  const bpms = {};
+  let baseBpm = 1;
+  let baseBpmDuration = 0;
+  const start = project.notes[0].t;
+  let current = start;
+  const end = project.notes[project.notes.length-1].getEnd();
+  let prevBpm = null;
+  for(const {t, bpm} of project.timingPoints.concat({t:end, bpm:0})){
+    let x = prevBpm || bpm;
+    bpms[x] = (bpms[x]||0) + (t-current);
+    if(bpms[x] > baseBpmDuration){ // TODO: check baseBpm behavior when theres a tie
+      baseBpm = x;
+      baseBpmDuration = bpms[x];
+    }
+    // if(bpms[bpm] === (baseBpmDuration = Math.max(baseBpm, bpms[bpm]))) baseBpm = bpm; // lol
+    current = t;
+    prevBpm = bpm;
+  }
+  // console.log(bpms, baseBpm); // WARNING : might be broken but works good enough for now
+  return {bpms, baseBpm};
+}
+
 function decode(text){
   const project = new Project();
   text = text.replace(/\r/g, '');
@@ -13,6 +36,7 @@ function decode(text){
     if(!line) continue;
     // console.log(line);
     // if(/^\[[^\]]+\]$/.test(line)) state = line.replace(/[\[\]]/g, ''); // welp apparently regex is really slow... https://jsbench.me/sel7a2xeh1/1 ; it has the bonus of being easier to write tho haha
+    if(!project.metadata.fileFormat) project.metadata.fileFormat = line;
     if(line[0] === "[" && line[line.length-1] === "]"){
       if(state === "Difficulty") columnCount = +project.metadata.Difficulty.CircleSize;
       state = line.substring(1, line.length-1);
@@ -32,7 +56,8 @@ function decode(text){
           spaceAfterColonInDelimiter = 0; // if its NOT General or Editor, then it'll stay 0
           break;
         case "Events": // TODO: take the bg here and just throw the sb stuff into cache for export
-
+          if(!(state in project.metadata)) project.metadata[state] = "";
+          project.metadata[state] += line + "\n";
           break;
         case "TimingPoints": { // separate BPM & SV here, probably the only codec stuff happens here haha
           /*
@@ -49,7 +74,10 @@ function decode(text){
             sv = bpm = 60000/mspb;
             if(bpm > 10 && bpm <= 5000) project.timingPoints.push(new TimingPoint(t, bpm, data[2]));
           }else{
-            sv = bpm * Math.min(Math.max(100/mspb, 0.01), 10); // equivalent bpm speed (with osu 0.01-10.00 clamping)
+            sv = 100/mspb; // what is speed is
+            // TODO : add option for parsing clamping
+            // sv = Math.min(Math.max(100/mspb, 0.01), 10); // osu 0.01-10.00 clamping
+            sv = bpm * sv; // equivalent bpm speed
           }
           globalSvBlock.setPoint(t, sv); // WARNING: some jank stuff might happen with points at the same time ??
           break;
@@ -57,7 +85,7 @@ function decode(text){
         case "HitObjects": { // yeeters into the notes array
           /*
           RICE   - x,y,time,type=1  ,hitSound,objectParams,hitSample
-          NOODLE - x,y,time,type=127,hitSound,endTime:hitSample
+          NOODLE - x,y,time,type=128,hitSound,endTime:hitSample
 
           hitSample format
           normalSet:additionSet:index:volume:filename
@@ -83,27 +111,12 @@ function decode(text){
   sortByTime(project.notes);
   sortByTime(project.timingPoints);
   sortByTime(globalSvBlock.func.nodes);
-  console.log(globalSvBlock);
+  // console.log(globalSvBlock);
+
   // base bpm
-  const bpms = {};
-  let baseBpm = 1;
-  let baseBpmDuration = 0;
+  const baseBpm = calculateBaseBpm(project).baseBpm;
   const start = project.notes[0].t;
-  let current = start;
   const end = project.notes[project.notes.length-1].getEnd();
-  let prevBpm = null;
-  for(const {t, bpm} of project.timingPoints.concat({t:end, bpm:0})){
-    let x = prevBpm || bpm;
-    bpms[x] = (bpms[x]||0) + (t-current);
-    if(bpms[x] > baseBpmDuration){ // TODO: check baseBpm behavior when theres a tie
-      baseBpm = x;
-      baseBpmDuration = bpms[x];
-    }
-    // if(bpms[bpm] === (baseBpmDuration = Math.max(baseBpm, bpms[bpm]))) baseBpm = bpm; // lol
-    current = t;
-    prevBpm = bpm;
-  }
-  console.log(bpms, baseBpm); // WARNING : might be broken but works good enough for now
   let firstTimingPoint = project.timingPoints[0].t;
   globalSvBlock.scaleX(1/baseBpm);
 
@@ -113,7 +126,7 @@ function decode(text){
 
   if(notePositions[0] > firstTimingPoint) notePositions.unshift(firstTimingPoint);
 
-  console.log(notePositions);
+  // console.log(notePositions);
 
   const speeds = globalSvBlock.func;
   for(let i = 0; i < notePositions.length-1; i ++){
@@ -145,7 +158,83 @@ function decode(text){
   return project;
 }
 function encode(project){
+  project.calculateSpeedOutput();
+
   // TODO: compile to osu :3c
+  const m = project.metadata; // alias cuz dont wanna type all of it out :skull:
+  let raw = `${m.fileFormat}`;
+  [{ section: "General", delimiter: ': ' },
+  { section: "Editor", delimiter: ': ' },
+  { section: "Metadata", delimiter: ':' },
+  { section: "Difficulty", delimiter: ':' }].forEach(({section, delimiter}) => {
+    raw += `\n\n[${section}]\n` + Object.entries(m[section]).map(x => x.join(delimiter)).join('\n');
+  });
+  raw += `\n\n[Events]\n` + m.Events;
+
+  raw += `\n[TimingPoints]`;
+  let tp = -1, currentTimingPoint;
+  let bpmChanged = false;
+  let prevSpeed = null;
+  const baseBpm = calculateBaseBpm(project).baseBpm;
+
+  raw += `\n0,${60000/baseBpm},${4},2,0,30,1,0`; // osu dies on green tp without red tp to use
+  for(let t = Math.max(project.notes[0].t, Math.floor(project.timingPoints[0].t+1)); t < project.speed.length; t ++){
+    // if(t > 10000) break;
+
+    let uninherited, inherited;
+    while(tp<0 || project.timingPoints[tp+1]?.t <= t){
+      tp ++;
+      currentTimingPoint = project.timingPoints[tp];
+      // TODO : export other properties of timingpoint
+      uninherited = `\n${currentTimingPoint.t},${60000/currentTimingPoint.bpm},${currentTimingPoint.meter},2,0,30,1,0`;
+      /*
+      time,beatLength,meter,sampleSet,sampleIndex,volume,uninherited,effects
+      0int,1float,    2int, 3int,     4int,       5int,  6bool(0/1), 7int
+      effects: bit0 - kiai, bit3 - ignore first barline
+      */
+      prevSpeed = null;
+    }
+    // let exportSpeed = project.speed[t] / (currentTimingPoint.bpm / baseBpm);
+    let exportSpeed = project.speed[t] / currentTimingPoint.bpm * baseBpm;
+    if(prevSpeed === exportSpeed){
+      // necessary to reset bpm (if needed)
+      raw += (uninherited||"") + (inherited||"");
+      continue;
+    } prevSpeed = exportSpeed;
+    if(exportSpeed >= 0.01 && exportSpeed <= 10){ // TODO : accumulator so its not so dumb
+      // within the bounds of the clamp
+      if(bpmChanged){ // only reset bpm if we're all good again to be using current bpm
+        // console.log(t);
+        // TODO : change bpm onto original snap once possible (so the lines arent dumb)
+        uninherited = `\n${t},${60000/currentTimingPoint.bpm},${currentTimingPoint.meter},2,0,30,1,0`;
+        bpmChanged = false;
+      }
+      inherited = `\n${t},${-100/exportSpeed},${currentTimingPoint.meter},2,0,30,0,0`;
+    }else{
+      // console.log(exportSpeed, t);
+      // something 0.01x (100) or 10x (0.1) that we can reach
+      const coef = Math.max(0.1, Math.random()*100);
+      const bpm = project.speed[t] * baseBpm  * coef; // speed = bpm/baseBpm ;; bpm = speed * base BPM
+      const sv = project.speed[t] / bpm * baseBpm;
+      if(sv < 0.01 || sv > 10) console.warn("bruh wtf", bpm, coef, sv, t);
+      uninherited = `\n${t},${60000/bpm},${currentTimingPoint.meter},2,0,30,1,0`;
+      inherited = `\n${t},${-100/sv},${currentTimingPoint.meter},2,0,30,0,0`;
+      bpmChanged = true;
+    }
+    // if(uninherited) bpmChanged = true;
+    // if(uninherited) console.log(uninherited, inherited, bpmChanged);
+    raw += (uninherited||"") + (inherited||"");
+  }
+
+  raw += `\n\n\n[HitObjects]\n` + project.notes.map(note => {
+    // TODO: export other properties of hitobject
+    let x = 0|((512/m.Difficulty.CircleSize)*(0.5+note.x));
+    let t = 0|note.t;
+    let tail = note instanceof LongNote ? `128,0,${note.t$}:` : '1,0,';
+    let hitSample = '0:0:0:0:';
+    return `${x},192,${t},${tail}${hitSample}`;
+  }).join('\n');
+  return raw;
 }
 
 export { encode, decode };

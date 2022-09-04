@@ -252,6 +252,7 @@ class Project {
     this.songAudio = null;
   }
   openEditor(){
+    if(this.editor) throw 'project editor already opened';
     this.editor = new ProjectEditor(this);
   }
   closeEditor(){
@@ -281,7 +282,7 @@ class Project {
     this.blocks.sort((a,b) => a.x-b.x || a.t-b.t); // TODO : check for collisions ?? (currently assumes no collision)
     this.speed = [...new Array(this.notes[this.notes.length-1].getEnd())].map(() => 1);
     for(const block of this.blocks) block.applyOnto(this.speed);
-    console.log("== total export time", 0|(performance.now()-_start), "ms")
+    console.log("== total calculation time", 0|(performance.now()-_start), "ms")
   }
 }
 

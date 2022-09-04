@@ -23,16 +23,21 @@ inputFile.addEventListener('change', event => {
       }
     });
     selectFile.addEventListener('change', () => {
-      console.log(selectFile.value);
+      // console.log(selectFile.value);
       const file = files[selectFile.value];
       const reader = new FileReader();
       reader.addEventListener('load', () => {
+        let _start = performance.now();
         const data = reader.result;
         const proj = osu.decode(data);
         proj.loadResources(files);
         console.log(proj);
         project = proj; // expose to global scope
+        project.codec = osu; // expose more stuff to global scope
+        console.log(0|(performance.now()-_start), "ms file load time");
+        _start = performance.now();
         project.openEditor();
+        console.log(0|(performance.now()-_start), "ms to open editor");
       });
       reader.readAsText(file);
       selectFile.remove();
