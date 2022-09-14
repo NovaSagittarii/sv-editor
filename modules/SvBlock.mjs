@@ -31,6 +31,8 @@ class SvBlock {
     this.t = 0;
     this.duration = 0;
   }
+  integrate(a, b){ return this.func.integrate(a-this.t, b-this.t); }
+  evaluate(t){ return this.func.evaluate(t-this.t); }
   setPoint(t, x){
     this.func.setPoint(t, x);
   }
@@ -60,13 +62,70 @@ class SvBlock {
     return remainder;
   }
   applyOnto(velocityArray/*, resolution*/){ // TODO : resolution for fast rendering??
-    /*for(const [t, x, d] of this.func.range()){
-      velocityArray[t] = operations[this.operation](velocityArray[t], x, (t-x.t)/d);
-    }*/ // cant do step by step since not all function (normalize) are local
-    // prefix sum is a cool antiderivative
-    //let velocityArray
-    let _start = performance.now(), _prep = 0, _apply = 0, _ct = 0;
+    let _start = performance.now(), _prep = 0, _apply = 0;
     const nodes = this.func.nodes;
+    /* let i = 0;
+    for(let t = Math.ceil(this.start); t < Math.floor(this.start + this.duration); t ++){
+      while(t >= nodes[i+1]?.t){
+
+      }
+      // maybe t loop while incrementing nodes would be better?? currently just going with antiderivative/prefix sum method though
+    } */
+    /*const antiderivative = [...new Array(Math.ceil(this.duration))];
+    const values = antiderivative.slice(0);
+    let t = 0, i = 0, accumulator = 0, carry = 0;
+    let nextTime = (nodes[i+1]?.t||this.duration);
+    while(t < this.duration){
+      if(t >= nextTime){
+        while(t >= nextTime){
+          // constant approximation for subdecimal. TODO: Linear approximation ?
+          carry += nodes[i].x * Math.min(nodes[i].t%1, nodes[i].t - (nodes[i-1]?.t||0));
+          if(nodes[i+1]) i ++;
+          t = nodes[i].t;
+          carry += nodes[i].x * Math.min((nodes[i+1]?.t||this.duration)-t, 1 - (t % 1));
+          t = Math.ceil(t);
+          nextTime = (nodes[i+1]?.t||Infinity); // dont happen again once reaching end
+        }
+      }else{
+        carry += nodes[i].x; // TODO : easing behaviors here
+      }
+      accumulator += (values[t] = Math.min(13720, carry)); // smallest ms necessary for teleport (?)
+      // accumulator = Math.max(0, accumulator + Math.min(13720, carry)); // TODO : handle negative stuff?
+      antiderivative[t] = accumulator;
+      if(t< 100) console.log(carry);
+      t ++;
+      carry = 0;
+    }
+    console.log(values.slice(0, 100));*/
+    // do desmos stuff here maybe
+
+    // integrate function
+    let appliedValues = [...new Array(Math.ceil(this.duration))];
+    (function(T, DURATION){
+      let sum = 0;
+      let i = 0;
+      let t, a, b;
+      let localOffset = 1-(T%1);
+      let globalOffset = Math.floor(T)+1; // idk why but its off by 1 (shift it all down 1 and then its all good)
+      let largestSum = 0;
+      for(let k = 0; k < DURATION; k ++){
+        sum = 0;
+        t = a = localOffset+k;
+        b = a + 1;
+        while(nodes[i+1]?.t <= t) i ++;
+        while(nodes[i+1]?.t < b){
+          sum += Math.min((nodes[i+1].t-t) * nodes[i].x, 1e6*1e4);
+          t = nodes[i+1].t;
+          i ++;
+        }
+        if(t < b) sum += Math.max(0, b-t) * nodes[i].x;
+        appliedValues[globalOffset+k] = sum;
+        if(k < 5 || (globalOffset+k) === 13902) console.log(globalOffset+k, sum, a, b, i);
+        if(sum > largestSum) largestSum = sum;
+      }
+      console.log("largest value over 1ms", largestSum);
+    })(this.t, this.duration);
+
     for(let i = 0; i < nodes.length; i ++){ // NOTE TODO : handle decimal point times!!!
       let node = nodes[i];
       let start = node.t + this.t;
@@ -83,40 +142,38 @@ class SvBlock {
         case SvBlock.Operation.DIVIDE:
         case SvBlock.Operation.INTENSIFY:
           func = operations[this.operation];
+          // y = undefined;
           break;
         case SvBlock.Operation.NORMALIZE:
           func = operations.multiply;
           let displacement = 0;
-          for(let x = start; x < end; x ++) displacement += velocityArray[x];
+          for(let x = Math.round(start); x < end; x ++) displacement += velocityArray[x];
           y = y*(end - start) / displacement;
+          appliedValues = [];
           break;
       }
       _prep += performance.now() - _start;
       _start = performance.now();
-      if(i < 10) console.log(start, end, y);
+      // if(i < 10) console.log(start, end, y);
+      // if(y === null) throw {error: "y val was not set", obj: this};
       for(let t = Math.round(start); t < end; t ++){
-        velocityArray[t] = func(velocityArray[t], y);
+        // velocityArray[t] = func(velocityArray[t], y);
+        // velocityArray[t] = func(velocityArray[t], y !== undefined ? y : values[Math.round(t-this.t)]);
+        velocityArray[t] = func(velocityArray[t], appliedValues[t] !== undefined ? appliedValues[t] : y);
       }
       _apply += performance.now() - _start;
-      _ct += 1;
     }
+    // console.log(velocityArray.slice(0, 100));
     console.log("-- prep total", 0|_prep, "ms");
     console.log("-- apply total", 0|_apply, "ms");
-    console.log(this.operation, "took", 0|(performance.now() - _start), "ms", `applied ${_ct} nodes`);
+    console.log(this.operation, "took", 0|(performance.now() - _start), "ms", `applied ${nodes.length} nodes`);
     return velocityArray;
-    /*let i = 0;
-    let curr, next;
-    let v0, v1;
-    const nodes = this.func.nodes;
-    for(let t = 0; t < velocityArray.length; t ++){
-      while(t >= nodes[i+1]?.t){
-        i ++;
-        curr = nodes[i].t;
-
-      }
-      velocityArray[t] = nodes[i].x;
-    }
-    return velocityArray;*/
+  }
+  snapToMs(opts){
+    /*
+      bool: useSelfForUnknown: when snapping but theres undefined parts
+    */
+    this.func.snapToMs(this.t, opts);
   }
 }
 

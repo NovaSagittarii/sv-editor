@@ -22,3 +22,17 @@ function normalizeProjectExport(){
     exportProject();
   // }, 500);
 }
+
+function exportProjectCopy(){
+  project.blocks.splice(1)
+  exportProject();
+}
+
+function testSet(){
+  project.blocks[0].applyOnto(project.speed=[...new Array(project.notes[project.notes.length-1].getEnd())].map(() => 1))
+  return getCurrentOutputSpeed();
+}
+
+function getCurrentOutputSpeed(){
+  return project.speed[~~project.editor.t]
+}

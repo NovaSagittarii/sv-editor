@@ -231,15 +231,22 @@ class PFunc {
     // do desmos stuff here maybe
     let sum = 0;
     let i = 0;
-    for(let t = a; t < b; t ++){
-      while(this.nodes[i+1] && this.nodes[i+1].t <= t) i ++;
-      sum += this.nodes[i].x; // this.nodes[i].easing.func(this.nodes[i].x, this.nodes[i+1]?.x, (t-this.nodes[i].t)/(this.nodes[i+1]?.t-this.nodes[i].t)); // buggy easing code
+    let t = a;
+    while(this.nodes[i+1]?.t <= t) i ++;
+    while(this.nodes[i+1]?.t < b){ // current til last node
+      // TODO : do integration here maybe
+      sum += Math.min((this.nodes[i+1].t-t) * this.nodes[i].x, 1e6*1e4);
+      t = this.nodes[i+1].t;
+      i ++;
     }
+    // last node til endpoint (b)
+    // if(!this.nodes[i+1] && t > this.nodes[i].t) sum += Math.max(0, (b-Math.this.nodes[i].t)) * this.nodes[i].x;
+    if(t < b) sum += Math.max(0, b-t) * this.nodes[i].x; // this.nodes[i].easing.func(this.nodes[i].x, this.nodes[i+1]?.x, (t-this.nodes[i].t)/(this.nodes[i+1]?.t-this.nodes[i].t)); // buggy easing code
     return sum;
   }
   evaluate(t){
     let i = 0;
-    while(this.nodes[i+1] && this.nodes[i+1].t <= t) i ++;
+    while(this.nodes[i+1]?.t <= t) i ++;
     return this.nodes[i].easing.func(this.nodes[i].x, this.nodes[i+1]?.x, (t-this.nodes[i].t)/(this.nodes[i+1]?.t-this.nodes[i].t));
   }
   // garbage code (the real garbage was the infinite loop)
@@ -291,7 +298,7 @@ class PFunc {
     return remainder;
   }
   toLatex(){
-    // for desmos calculations cuz numerical piecewise is terrible for performance (or maybe misusing yield?)
+    // for desmos calculations ~~cuz numerical piecewise is terrible for performance~~ (or maybe misusing yield?, yes turned out to be misuing yield)
     // f\left(x\right)=\left\{0<x<1:4,1<x<2:3\right\}
     let piecewise = "";
     for(let i = 0; i < this.nodes.length; i ++){
@@ -300,6 +307,17 @@ class PFunc {
       piecewise += `${(node.t/1000).toFixed(3)}<x\\le${(end/1000).toFixed(3)}:${Math.min(30, node.x).toFixed(2)},`;
     }
     return `f\\left(x\\right)=\\left\\{${piecewise.replace(/,$/, '')}\\right\\}`;
+  }
+  snapToMs(){// (t, opts){
+    throw 'not implemented';
+    // snaps all nodes so they are on integer time
+    // will do weird stuff when things arent constant :thonk:
+    this.nodes[0].t = Math.ceil(this.nodes[0].t);
+    let newNodes = [this.nodes[0]];
+    for(let i = 0; i < this.nodes.length; i ++){
+
+    }
+    this.nodes = newNodes;
   }
 }
 

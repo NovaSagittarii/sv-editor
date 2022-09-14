@@ -111,6 +111,8 @@ function decode(text){
   sortByTime(project.notes);
   sortByTime(project.timingPoints);
   sortByTime(globalSvBlock.func.nodes);
+
+  // globalSvBlock.snapToMs({useSelfForUnknown: true});
   // console.log(globalSvBlock);
 
   // base bpm
@@ -138,8 +140,9 @@ function decode(text){
     globalNormalizationBlock.setPoint(notePositions[i]-notePositions[0], average);
   }
 
-  globalSvBlock.offsetT(-firstTimingPoint); // NOTE : might be okay to keep original offsets
-  globalSvBlock.t = firstTimingPoint;
+  globalSvBlock.offsetT(-Math.floor(firstTimingPoint)); // NOTE : might be okay to keep original offsets
+  globalSvBlock.func.nodes[0].t = 0;
+  globalSvBlock.t = Math.floor(firstTimingPoint);
   globalSvBlock.duration = end-firstTimingPoint;
   globalNormalizationBlock.t = notePositions[0];
   globalNormalizationBlock.duration = notePositions[notePositions.length-1] - notePositions[0];
@@ -214,8 +217,10 @@ function encode(project){
       // console.log(exportSpeed, t);
       // something 0.01x (100) or 10x (0.1) that we can reach
       const coef = Math.max(0.1, Math.random()*100);
-      const bpm = project.speed[t] * baseBpm  * coef; // speed = bpm/baseBpm ;; bpm = speed * base BPM
-      const sv = project.speed[t] / bpm * baseBpm;
+      const bpm = Math.min(Math.max(project.speed[t], 0.0001), 14000) * baseBpm  * coef; // speed = bpm/baseBpm ;; bpm = speed * base BPM
+      // const sv = project.speed[t] / bpm * baseBpm;
+      // const sv = SP / (SP * baseBpm * coef) * baseBpm = 1/ coef;
+      const sv = 1 / coef;
       if(sv < 0.01 || sv > 10) console.warn("bruh wtf", bpm, coef, sv, t);
       uninherited = `\n${t},${60000/bpm},${currentTimingPoint.meter},2,0,30,1,0`;
       inherited = `\n${t},${-100/sv},${currentTimingPoint.meter},2,0,30,0,0`;
