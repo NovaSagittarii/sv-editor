@@ -181,7 +181,7 @@ function encode(project){
   const baseBpm = calculateBaseBpm(project).baseBpm;
 
   raw += `\n0,${60000/baseBpm},${4},2,0,30,1,0`; // osu dies on green tp without red tp to use
-  for(let t = Math.max(project.notes[0].t, Math.floor(project.timingPoints[0].t+1)); t < project.speed.length; t ++){
+  for(let t = Math.min(project.notes[0].t, Math.floor(project.timingPoints[0].t+1)); t < project.speed.length; t ++){
     // if(t > 10000) break;
 
     let uninherited, inherited;
