@@ -272,6 +272,26 @@ class Project {
     });
     reader.readAsDataURL(audioFile);
   }
+  // loads resources from jsZip object instead of filenames
+  async loadResourcesZip(jsZip) {
+    const audioFile = jsZip.files[this.metadata.General.AudioFilename];
+
+    if (!audioFile) throw "audio file not found!";
+    // blob, we need to convert to base64url
+    const audioData = await audioFile.async("blob");
+
+    const reader = new FileReader();
+
+    reader.addEventListener("load", () => {
+      this.songAudio = new Howl({
+        src: reader.result,
+        format: audioFile.name.split(".").pop().toLowerCase(), // always give file extension: this is optional but helps
+      });
+      this.songAudio.once("load", () => console.log("Audio is loaded"));
+    });
+
+    reader.readAsDataURL(audioData);
+  }
   addBlock(block){
     this.blocks.push(block);
     this.editor?.addBlock(block);
