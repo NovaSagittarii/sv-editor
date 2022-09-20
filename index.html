@@ -46,14 +46,36 @@
     <script src="./lib/calculator.js"></script>
   </head>
   <body>
-    <label>
-      pick extracted osu beatmap folder
-      <input type="file" id="folder" name="fileList" webkitdirectory multiple />
-    </label>
-    <br />
-    <label>
-      pick <code>.osz</code> or <code>.zip</code> file
-      <input type="file" id="zip" name="fileList" accept=".zip" />
-    </label>
+    <div id="loader">
+      <div id="selector">
+        osu beatmap:
+        <label>
+          .osz, .zip
+          <input
+            class="fileType"
+            value="zip"
+            name="fileType"
+            type="radio"
+            checked="true"
+          />
+        </label>
+        <label>
+          folder
+          <input class="fileType" value="folder" name="fileType" type="radio" />
+        </label>
+      </div>
+      <label id="folderSelector" style="display: none">
+        <input
+          type="file"
+          id="folder"
+          name="fileList"
+          webkitdirectory
+          multiple
+        />
+      </label>
+      <label id="zipSelector">
+        <input type="file" id="zip" name="fileList" accept=".zip,.osz" />
+      </label>
+    </div>
   </body>
 </html>

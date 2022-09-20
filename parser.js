@@ -43,10 +43,11 @@ import * as osu from './modules/codecs/osuCodec.mjs';
           console.log(0|(performance.now()-_start), "ms to open editor");
         });
         reader.readAsText(file);
-        selectFile.remove();
-        inputFile.remove();
+        document.getElementById("loader").style.display = "none";
+        // selectFile.remove();
+        // inputFile.remove();
       });
-      document.body.append(selectFile);
+      document.getElementById("loader").append(selectFile);
     }
   });
 })();
@@ -108,12 +109,26 @@ import * as osu from './modules/codecs/osuCodec.mjs';
         project.openEditor();
         console.log(0|(performance.now()-_start), "ms to open editor");
 
-        selectFile.remove();
-        inputFile.remove();
+        document.getElementById("loader").style.display = "none";
       });
-      document.body.append(selectFile);
+      document.getElementById("loader").append(selectFile);
     } catch (e) {
       console.error(e);
     }
   });
+})();
+
+(() => {
+  const rad = document.getElementsByClassName("fileType");
+  for (let i = 0; i < rad.length; i++) {
+    rad[i].addEventListener("change", () => {
+      if (rad[i].value === "folder") {
+        document.getElementById("zipSelector").style.display = "none";
+        document.getElementById("folderSelector").style.display = "block";
+      } else {
+        document.getElementById("zipSelector").style.display = "block";
+        document.getElementById("folderSelector").style.display = "none";
+      }
+    });
+  }
 })();
