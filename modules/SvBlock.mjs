@@ -35,7 +35,7 @@ class SvBlock {
     this.duration = duration;
   }
   getLabel(){
-    return operationNames[this.operation] + " " + this.func.getLabel();
+    return operationNames[this.operation] + "\n" + this.func.getLabel();
   }
   integrate(a, b){ return this.func.integrate(a-this.t, b-this.t); }
   evaluate(t){ return this.func.evaluate(t-this.t); }

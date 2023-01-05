@@ -18,7 +18,7 @@ class Function {
     this.getDetails = g;
   }
   getLabel(params){
-    return this.getDetails(...params.map(x => x.toFixed(2)));
+    return this.getDetails(...params.map(x => x.toPrecision(2)));
   }
   generateParameters(){
     return this.parameterNames.map(x => 0);

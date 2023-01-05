@@ -150,7 +150,7 @@ class RenderedSvBlock extends RenderedObject {
     const tx = this.graphicsLabel = new PIXI.Text(linked.getLabel(), { // TODO: maybe use bitmaptext later
       fontName: "Arial",
       fontSize: 12,
-      align: "right"
+      align: "left"
     }); // TODO: render other types of sv block
     tx.position.y = -tx.height;
     const line = this.graphicsLine = new PIXI.Graphics();
