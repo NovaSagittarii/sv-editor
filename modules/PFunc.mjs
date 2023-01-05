@@ -1,5 +1,6 @@
-import { Function } from './Function.mjs';
+import { Function, Functions } from './Function.mjs';
 import { RenderedObject } from './PIXIRendering.mjs';
+import { SvBlock } from './SvBlock.mjs';
 
 class PFuncEditor {
   constructor(linked, renderedSvBlock, projectEditor){
@@ -28,11 +29,62 @@ class PFuncEditor {
       this.linked.closeEditor();
     }, {once: true});
 
+    const [config, operation, functionFamily] = [...new Array(3)].map(() => document.createElement('div'));
+
+    const operationInput = document.createElement('select');
+    Object.entries(SvBlock.Operation).forEach(([operationName, operation]) => {
+      const option = document.createElement('option'); // TODO: move PFuncEditor into SvBlockEditor or some mix, this feels a bit too scuffed
+      option.selected = operation === renderedSvBlock.linked.operation;
+      option.innerText = operationName.toLowerCase();
+      option.value = operationName;
+      operationInput.append(option);
+    });
+    operationInput.addEventListener('change', () => {
+      renderedSvBlock.linked.operation = SvBlock.Operation[operationInput.value];
+      this.refresh();
+    });
+
+    const [operationLabel, functionFamilyLabel] = [...new Array(2)].map(() => document.createElement('span'));
+    operationLabel.innerText = "Operation";
+    functionFamilyLabel.innerText = "Function";
+
+    operation.append(operationLabel, operationInput);
+    const functionFamilyInput = document.createElement('select');
+    Object.entries(Functions).forEach(([functionName, func]) => {
+      const option = document.createElement('option');
+      option.selected = func === this.function;
+      option.innerText = functionName;
+      option.value = functionName;
+      functionFamilyInput.append(option);
+    });
+    functionFamilyInput.addEventListener('change', () => {
+      this.linked.function = Functions[functionFamilyInput.value];
+      this.linked.params = Object.assign(this.linked.function.generateParameters(), this.linked.params);
+      this.updateSliders(sliders);
+    });
+    functionFamily.append(functionFamilyLabel, functionFamilyInput);
+    config.append(operation, functionFamily);
+
     const sliders = document.createElement('div');
+    this.updateSliders(sliders);
+
+    this.htmlElement.append(buttonMove, buttonClose, config, sliders);
+    document.body.append(this.htmlElement);
+  }
+  destroy(){
+    // this.app.destroy(true);
+    this.htmlElement.remove();
+  }
+  updateSliders(slidersDiv){
+    slidersDiv.replaceChildren();
     this.linked.function.parameterNames.forEach((name, i) => {
-      const [div, label] = [...new Array(2)].map(() => document.createElement('div'));
+      const div = document.createElement('div');
+      div.classList.add('parameter');
+      const label = document.createElement('span');
+      label.classList.add('parameter_name');
       label.innerText = name;
       const [slider, textarea] = [... new Array(2)].map(() => document.createElement('input'));
+      slider.classList.add('parameter_range');
       slider.type = "range";
       slider.min = "-4";
       slider.max = "4";
@@ -42,21 +94,20 @@ class PFuncEditor {
         this.linked.params[i] = textarea.value = slider.valueAsNumber;
         this.refresh();
       });
+      textarea.classList.add('parameter_field');
+      textarea.addEventListener('change', () => {
+        if(isNaN(+textarea.value)) textarea.value = slider.value;
+      })
       textarea.addEventListener('input', () => {
-        if(isNaN(textarea.value)) textarea.value = slider.value;
-        else this.linked.params[i] = slider.value = textarea.valueAsNumber;
-        this.refresh();
+        if(!isNaN(+textarea.value)){
+          this.linked.params[i] = slider.value = +textarea.value;
+          this.refresh();
+        }
       })
       div.append(label, slider, textarea);
-      sliders.append(div);
+      slidersDiv.append(div);
     });
-
-    this.htmlElement.append(buttonMove, buttonClose, sliders);
-    document.body.append(this.htmlElement);
-  }
-  destroy(){
-    // this.app.destroy(true);
-    this.htmlElement.remove();
+    this.refresh();
   }
   refresh(){
     this.renderedSvBlock.render(); // TODO : setup delay to avoid consecutive rerender
