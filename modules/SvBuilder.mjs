@@ -60,7 +60,43 @@ class SvBuilder {
   align(){
     let temp = [];
     let t = Math.floor(this.points[0].t);
+    let carry = (this.points[0].t - t) * this.points[0].x;
+    // ... 1----2----3----4----5---- ...
+    //       aaabbbbbbbbbbcc
+    //       aaacc
+    //       dd
+    for(let i = 0; i < this.points.length-1; i ++){
+      let velocity = this.points[i].x;
+      let curr = this.points[i].t;
+      let next = this.points[i+1].t;
+      if(Math.floor(curr) === Math.floor(next)){
+        // section d
+        carry += velocity * (next - t);
+        t = next;
+      }else{
+        // section a
+        if(curr !== Math.round(curr)){
+          carry += velocity * (Math.ceil(curr) - t);
+          t = Math.ceil(curr);
+        }
 
+        if(carry){
+          temp.push(new Point(t-1, carry));
+          carry = 0;
+        }
+        // section b
+        if(Math.floor(next) > t){
+          temp.push(new Point(t, velocity));
+          t = Math.floor(next);
+        }
+
+        // section c
+        if(next !== Math.round(next)){
+          carry += velocity * (next - t);
+        }
+      }
+    }
+    // if(carry) console.warn("residual at end", {carry, t});
     this.aligned = true;
   }
   *exportAsBlocks(operation, col, endTime){

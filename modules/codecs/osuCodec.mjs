@@ -129,7 +129,7 @@ function decode(text){
   // const globalNormalizationBlock = new SvBlock(SvBlock.Operation.NORMALIZE, 4);
   const notePositions = [...new Set(project.notes.map(x => [x.t, x.t$]).flat().filter(x => x !== void 0))].sort((a,b)=>a-b); // splits
 
-  if(notePositions[0] < firstTimingPoint) notePositions.unshift(firstTimingPoint);
+  if(notePositions[0] > firstTimingPoint) notePositions.unshift(firstTimingPoint);
 
   // console.log(notePositions);
 
@@ -165,7 +165,6 @@ function decode(text){
   // console.log(velocity, normalization);
   velocity.cull();
   normalization.cull();
-  project.vel2 = velocity;
   project.addBlock(...velocity.exportAsBlocks(SvBlock.Operation.SET, 0, end));
   project.addBlock(...normalization.exportAsBlocks(SvBlock.Operation.NORMALIZE, 4, end));
   return project;
