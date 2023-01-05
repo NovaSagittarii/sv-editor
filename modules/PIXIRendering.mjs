@@ -154,7 +154,7 @@ class RenderedSvBlock extends RenderedObject {
     }); // TODO: render other types of sv block
     tx.position.y = -tx.height;
     const line = this.graphicsLine = new PIXI.Graphics();
-    this.renderThumbnail();
+    this.render();
     body.addChild(line);
     g.addChild(body, tx); //, this.graphicsDebugDisplay
     g.interactive = true;
@@ -168,7 +168,8 @@ class RenderedSvBlock extends RenderedObject {
       }
     });
   }
-  renderThumbnail(){ // the thing shown on the rectangle for the svBlock
+  render(){ // the thing shown on the rectangle for the svBlock
+    this.graphicsLabel.text = this.linked.getLabel();
     return; // TODO: implement render
     const l = this.graphicsLine;
     l.clear();

@@ -13,7 +13,7 @@ class PFuncEditor {
     const buttonMove = document.createElement("button");
     this.x = 0;
     this.y = 0;
-    buttonMove.innerText = '\u25a2';
+    buttonMove.innerText = this.linked.getLabel();
     buttonMove.addEventListener('mousedown', e => {
       let {screenX, screenY} = e;
       document.body.addEventListener('mouseup', e => {
@@ -27,138 +27,39 @@ class PFuncEditor {
     buttonClose.addEventListener('click', () => {
       this.linked.closeEditor();
     }, {once: true});
-    const app = this.app = new PIXI.Application({
-        width: 400,
-        height: 400,
-        antialias: true,
-        transparent: true,
-        resolution: 1
-      }
-    );
-    this.selectedNode = null;
-    this.t = 0;
-    this.z = 0.01;
-    // app.stage.pivot.y = -390;
-    app.view.style.border = "1px black solid";
-    app.view.addEventListener('mousemove', this.updateMousePosition.bind(this));
-    app.view.addEventListener('click', () => {
-      // TODO : binary search
-      let nearest = 0;
-      let dist = Infinity;
-      for(const point of this.points){
-        let newDist = Math.abs(this.mouseT - point.linked.t) + Math.abs(this.mouseX - point.linked.x); // TODO: maybe use physical distance later
-        if(newDist < dist){
-          dist = newDist;
-          nearest = point;
-        }else break;
-      }
-      this.select(nearest);
-    });
-    app.view.addEventListener('wheel', e => {
-      if(e.deltaY === 0) return; // displacement
-      let up = e.deltaY < 0;
-      /* if(e.ctrlKey){
-        this.setTimeScale(this.z = up ? (this.z*2) : (this.z/2));
-      }else{
-        this.t = Math.max(0, this.t + (up ? -1 : 1)*1000);
-      } */ // these are controlled by the projectEditor now
-      if(e.ctrlKey){ // make it move
-        if(this.selectedNode){
-          this.selectedNode.setTime(Math.min(Math.max(this.mouseT, (this.selectedNode.prev.linked.t+1)||0), (this.selectedNode.next.linked.t-1)||this.selectedNode.linked.t));
-          this.selectedNode.setTimeScale(this.z);
-        }
-      }else{
-        if(!this.selectedNode) this.select(this.points[0]);
-        this.select(this.selectedNode[up ? 'next' : 'prev']);
-      }
-      e.preventDefault();
+
+    const sliders = document.createElement('div');
+    this.linked.function.parameterNames.forEach((name, i) => {
+      const [div, label] = [...new Array(2)].map(() => document.createElement('div'));
+      label.innerText = name;
+      const [slider, textarea] = [... new Array(2)].map(() => document.createElement('input'));
+      slider.type = "range";
+      slider.min = "-4";
+      slider.max = "4";
+      slider.step = "0.01";
+      slider.value = textarea.value = this.linked.params[i];
+      slider.addEventListener('input', () => {
+        this.linked.params[i] = textarea.value = slider.valueAsNumber;
+        this.refresh();
+      });
+      textarea.addEventListener('input', () => {
+        if(isNaN(textarea.value)) textarea.value = slider.value;
+        else this.linked.params[i] = slider.value = textarea.valueAsNumber;
+        this.refresh();
+      })
+      div.append(label, slider, textarea);
+      sliders.append(div);
     });
 
-    // TODO: move keyEvents to the projectEditor
-    document.body.addEventListener('keydown', e => {
-      if(e.altKey) this.snapToNearestLine = false;
-    });
-    document.body.addEventListener('keyup', e => {
-      if(!e.altKey) this.snapToNearestLine = true;
-    });
-
-    const dynamicStage = this.dynamicStage = new PIXI.Container();
-    dynamicStage.pivot.y = -390;
-    const pointer = this.pointer = new PIXI.Container();
-    pointer.pivot.set(0, -2); // align top of pointer to bottom of squares
-    const pointerLine = new PIXI.Graphics();
-    pointerLine.beginFill(0x000000);
-    pointerLine.drawRect(2, 0, 5, 1);
-    pointerLine.drawRect(-2, 0, -5, 1);
-    const pointerText = this.pointerText = new PIXI.Text("0", {
-      fontName: "Arial",
-      fontSize: 12,
-      align: "right"
-    });
-    pointerText.anchor.set(0, 1);
-    pointer.addChild(pointerLine, pointerText);
-    app.stage.addChild(pointer, dynamicStage);
-
-    let prev;
-    this.points = linked.nodes.map((node,i) => {
-      const mp = new MoveablePoint(node, this); //, i<2?0xF00000:0x000000);
-      if(prev){
-        prev.setNext(mp);
-        mp.setPrev(prev);
-      }
-      prev = mp;
-
-      dynamicStage.addChild(mp.graphics);
-      mp.setTimeScale(this.z);
-      return mp;
-    });
-
-    this.htmlElement.append(buttonMove, buttonClose, app.view);
+    this.htmlElement.append(buttonMove, buttonClose, sliders);
     document.body.append(this.htmlElement);
   }
-  select(moveablePoint){
-    if(!moveablePoint) return;
-    if(this.selectedNode) this.selectedNode.deselect();
-    moveablePoint.select();
-    this.selectedNode = moveablePoint;
-  }
-  deselect(moveablePoint){
-    if(this.selectedNode == moveablePoint){
-      moveablePoint.deselect();
-      this.selectedNode = null;
-    }
-  }
-  updateCamera(){
-    this.dynamicStage.position.y = this.t*this.z;
-  }
-  setTime(t){
-    this.t = t;
-    this.updateCamera();
-    this.updateMousePosition();
-  }
-  setTimeScale(z){ // y = zt, dy=(tdz); dt = tdz/z
-    // this.t += this.t * (z-this.z) / z;
-    this.z = z;
-    this.updateCamera();
-    this.points.forEach(mp => mp.setTimeScale(z));
-  }
   destroy(){
-    this.app.destroy(true);
+    // this.app.destroy(true);
     this.htmlElement.remove();
   }
-  updateMousePosition(mouseEvent){
-    if(mouseEvent instanceof window.MouseEvent){ // use this to track where mouse is
-      this.mouseEventX = mouseEvent.offsetX;
-      this.mouseEventY = mouseEvent.offsetY;
-    }
-    this.mouseT = this.t - (this.mouseEventY - this.app.screen.height)/this.z;
-    if(this.snapToNearestLine && this.projectEditor) this.mouseT = this.projectEditor.getNearestLine(this.mouseT + this.renderedSvBlock.linked.t) - this.renderedSvBlock.linked.t;
-    this.mouseX = this.mouseEventX / 100;
-    this.pointer.position.set(this.mouseEventX, this.app.screen.height + (this.t-this.mouseT)*this.z);
-    this.pointerText.text = ~~this.mouseT;
-  }
-  updatePoint(moveablePoint){
-    this.renderedSvBlock.renderThumbnail(); // TODO : setup delay to avoid consecutive rerender
+  refresh(){
+    this.renderedSvBlock.render(); // TODO : setup delay to avoid consecutive rerender
   }
 }
 
@@ -196,13 +97,13 @@ class PFunc {
     }
   }
   openEditor(renderedSvBlock, baseEditor){ // why look for a framework or library when you can do it yourself ... it's a cool exercise tho
-    throw 'not implemented';
+    // throw 'not implemented';
     if(this.editor) throw 'pfunc editor already opened';
     this.editor = new PFuncEditor(this, renderedSvBlock, baseEditor);
-    if(baseEditor){
+    /*if(baseEditor){
       this.editor.setTime(baseEditor.t);
       this.editor.setTimeScale(baseEditor.z);
-    }
+    }*/
   }
   closeEditor(){
     this.editor?.destroy();

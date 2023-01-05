@@ -175,17 +175,17 @@ height:100vh;`;
       } // to get all measure snaps: this.lines.map(l => l.t)
     });
 
-    this.blocks.forEach(b => {
-      const block = b.linked;
-      const svBlockEditor = block.func.editor;
-      if(svBlockEditor && this.t >= block.t && this.t <= block.t+block.duration){ // filter condition
-        svBlockEditor.setTimeScale(this.z);
-        svBlockEditor.setTime(this.t-block.t);
-      }
-      /* b.graphicsDebugDisplay.text = block.func.evaluate(this.t - block.t).toFixed(3) + 'x';
-      b.graphicsDebugDisplay.position.y = -this.dynamicStage.position.y - b.graphics.position.y;
-      b.graphicsDebugDisplay.anchor.set(0, 0); */
-    });
+    // this.blocks.forEach(b => {
+    //   const block = b.linked;
+    //   const svBlockEditor = block.func.editor;
+    //   if(svBlockEditor && this.t >= block.t && this.t <= block.t+block.duration){ // filter condition
+    //     svBlockEditor.setTimeScale(this.z);
+    //     svBlockEditor.setTime(this.t-block.t);
+    //   }
+    //   /* b.graphicsDebugDisplay.text = block.func.evaluate(this.t - block.t).toFixed(3) + 'x';
+    //   b.graphicsDebugDisplay.position.y = -this.dynamicStage.position.y - b.graphics.position.y;
+    //   b.graphicsDebugDisplay.anchor.set(0, 0); */
+    // });
 
     // some tree structure seems appropriate for culling (esp since they dont move around much)
     if(this.renderedMinT === void 0 || (this.t < this.renderedMinT || this.t > this.renderedMaxT)){
