@@ -1,55 +1,6 @@
-import { EasingFunction } from './EasingFunction.mjs';
+import { Function } from './Function.mjs';
 import { RenderedObject } from './PIXIRendering.mjs';
 
-
-
-class MoveablePoint extends RenderedObject { // HTML interface for messing with PNode
-  constructor(linked, editor, color){
-    super(linked);
-    this.parent = editor;
-    this.z = 1;
-    const g = this.graphics = new PIXI.Graphics();
-
-    g.beginFill(color || 0xaaaaaa); // TODO: use easing for color
-    // g.lineStyle(5, 0xFF0000);
-    g.drawRect(0, 0, 10, 10);
-    g.position.x = Math.min(Math.max(linked.x*100, 0), 390);
-    g.position.y = -linked.t;
-
-    const g2 = this.graphicsLine = new PIXI.Graphics();
-    g2.beginFill(0x00FFDF);
-    g2.drawRect(0, 0, 1, 1);
-    g2.position.set(5, 0); // maybe do curves later
-    g.addChild(g2);
-  }
-  setTime(newT){
-    this.linked.t = newT;
-    this.graphics.position.y = -this.linked.t;
-    this.parent.updatePoint(this);
-    this.setEasingLine();
-    if(this.prev) this.prev?.setEasingLine();
-  }
-  setX(newX){
-    this.linked.x = newX;
-    this.graphics.position.x = Math.min(Math.max(this.linked.x*100, 0), 390);
-    this.parent.updatePoint(this);
-  }
-  setNext(moveablePoint){
-    this.next = moveablePoint;
-    this.setEasingLine();
-  }
-  setPrev(moveablePoint){
-    this.prev = moveablePoint;
-  }
-  setTimeScale(timeScale){
-    this.z = timeScale;
-    this.graphics.position.y = -this.linked.t * timeScale;
-    this.setEasingLine(timeScale);
-  }
-  setEasingLine(){
-    if(this.next) this.graphicsLine.scale.y = -Math.max(0, (this.next.linked.t - this.linked.t) * this.z - 10);
-  }
-}
 class PFuncEditor {
   constructor(linked, renderedSvBlock, projectEditor){
     this.linked = linked;
@@ -58,8 +9,7 @@ class PFuncEditor {
     this.snapToNearestLine = true;
 
     this.htmlElement = document.createElement("div");
-    this.htmlElement.style = `position: absolute;
-background: #f3f3ed80`;
+    this.htmlElement.style = `position: absolute; background: #f3f3ed80`;
     const buttonMove = document.createElement("button");
     this.x = 0;
     this.y = 0;
@@ -212,45 +162,28 @@ background: #f3f3ed80`;
   }
 }
 
-class PNode { // using x(t) so i confused myself less
-  constructor(t, x){
-    this.t = t;
-    this.x = x;
-    this.easing = EasingFunction.Constant;
-  }
-}
-
 // piecewise function (desmos would be pretty cool except i have some weird operations that not sure if i can define well)
 class PFunc {
   constructor(parent){
-    this.nodes = [];
+    this.function = Function.Constant;
+    this.params = this.function.generateParameters();
     this.editor = null;
     this.linked = parent;
+  }
+  getLabel(){
+    return this.function.getLabel(this.params);
   }
   integrate(a, b){
     // do desmos stuff here maybe
     let sum = 0;
-    let i = 0;
-    let t = a;
-    while(this.nodes[i+1]?.t <= t) i ++;
-    while(this.nodes[i+1]?.t < b){ // current til last node
-      // TODO : do integration here maybe
-      sum += Math.min((this.nodes[i+1].t-t) * this.nodes[i].x, 1e6*1e4);
-      t = this.nodes[i+1].t;
-      i ++;
-    }
-    // last node til endpoint (b)
-    // if(!this.nodes[i+1] && t > this.nodes[i].t) sum += Math.max(0, (b-Math.this.nodes[i].t)) * this.nodes[i].x;
-    if(t < b) sum += Math.max(0, b-t) * this.nodes[i].x; // this.nodes[i].easing.func(this.nodes[i].x, this.nodes[i+1]?.x, (t-this.nodes[i].t)/(this.nodes[i+1]?.t-this.nodes[i].t)); // buggy easing code
+    for(let t = a; t < b; t ++) sum += Math.min(evaluate(t), 1e6*1e4);
     return sum;
   }
   evaluate(t){
-    let i = 0;
-    while(this.nodes[i+1]?.t <= t) i ++;
-    return this.nodes[i].easing.func(this.nodes[i].x, this.nodes[i+1]?.x, (t-this.nodes[i].t)/(this.nodes[i+1]?.t-this.nodes[i].t));
+    return this.function.evaluate(t, ...this.params);
   }
-  // garbage code (the real garbage was the infinite loop)
   *range(start=0, end=this.linked.duration){
+    throw 'not implemented';
     let i = 0;
     let t = start;
     while(t < end){
@@ -260,6 +193,7 @@ class PFunc {
     }
   }
   openEditor(renderedSvBlock, baseEditor){ // why look for a framework or library when you can do it yourself ... it's a cool exercise tho
+    throw 'not implemented';
     if(this.editor) throw 'pfunc editor already opened';
     this.editor = new PFuncEditor(this, renderedSvBlock, baseEditor);
     if(baseEditor){
@@ -271,33 +205,14 @@ class PFunc {
     this.editor?.destroy();
     this.editor = null;
   }
-  setValue(t, x){ // for keeping the function simpler if extra x vals dont matter
-    if(this.evaluate(t) !== x){
-      this.setPoint(t, x);
-    }
+  set(args){
+    for(const k in this.params) this.params[k] = args[k] || 0;
   }
-  setPoint(t, x){
-    const n = this.nodes.filter(n => n.t === t)[0];
-    if(n) n.x = x;
-    else{
-      this.nodes.push(new PNode(t, x)); // scuffed insertion to keep sorted
-      this.nodes.sort((a,b) => a.t-b.t);
-      for(let i = 0; i < this.nodes.length; i ++){
-        this.nodes[i].next = this.nodes[i+1] || null;
-        this.nodes[i].prev = this.nodes[i-1] || null;
-      }
-    }
-  }
-  splice(t){
-    if(t < 0) throw 'invalid splice range';
-    const remainder = new PFunc();
-    let i = 0;
-    while(this.nodes[i].t < t) i ++;
-    remainder.nodes = [new PNode(t /*t-t=0*/, this.nodes[i-1]?.t || 1)].concat(this.nodes.splice(i));
-    remainder.nodes.forEach(node => node.t -= t);
-    return remainder;
+  update(args){
+    for(const k in this.params) this.params[k] = k in args ? args[k] : this.params[k];
   }
   toLatex(){
+    throw 'not implemented';
     // for desmos calculations ~~cuz numerical piecewise is terrible for performance~~ (or maybe misusing yield?, yes turned out to be misuing yield)
     // f\left(x\right)=\left\{0<x<1:4,1<x<2:3\right\}
     let piecewise = "";
@@ -308,18 +223,7 @@ class PFunc {
     }
     return `f\\left(x\\right)=\\left\\{${piecewise.replace(/,$/, '')}\\right\\}`;
   }
-  snapToMs(){// (t, opts){
-    throw 'not implemented';
-    // snaps all nodes so they are on integer time
-    // will do weird stuff when things arent constant :thonk:
-    this.nodes[0].t = Math.ceil(this.nodes[0].t);
-    let newNodes = [this.nodes[0]];
-    for(let i = 0; i < this.nodes.length; i ++){
-
-    }
-    this.nodes = newNodes;
-  }
 }
 
-export { PFunc, PNode, EasingFunction };
+export { PFunc, Function };
 export default PFunc;

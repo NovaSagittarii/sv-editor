@@ -2,6 +2,7 @@ import { Project, sortByTime } from '../Project.mjs';
 import { Note, LongNote } from '../Notes.mjs';
 import { TimingPoint } from '../TimingPoint.mjs';
 import { SvBlock } from '../SvBlock.mjs';
+import { SvBuilder } from '../SvBuilder.mjs';
 
 function calculateBaseBpm(project){
   const bpms = {};
@@ -31,7 +32,8 @@ function decode(text){
   text = text.replace(/\r/g, '');
   let state = null;
   let columnCount = 4;
-  let bpm, sv, globalSvBlock = new SvBlock(SvBlock.Operation.SET);
+  let start = Infinity, end = -Infinity;
+  let bpm, sv, velocity = new SvBuilder, normalization = new SvBuilder;
   for(const line of text.split('\n')){
     if(!line) continue;
     // console.log(line);
@@ -79,7 +81,7 @@ function decode(text){
             // sv = Math.min(Math.max(100/mspb, 0.01), 10); // osu 0.01-10.00 clamping
             sv = bpm * sv; // equivalent bpm speed
           }
-          globalSvBlock.setPoint(t, sv); // WARNING: some jank stuff might happen with points at the same time ??
+          velocity.addPoint(t, sv); // WARNING: some jank stuff might happen with points at the same time ??
           break;
         } // doin the weird brace thingy in switch/case for scoping
         case "HitObjects": { // yeeters into the notes array
@@ -99,6 +101,8 @@ function decode(text){
           } else { // noodle
             n = new LongNote(col, data[2], data[5]);
           }
+          start = Math.min(start, n.getStart());
+          end = Math.max(end, n.getEnd());
           /* n.hitsound = data[3]
           n.sample = data[6+] */ // TODO: implement hitsounds
           project.notes.push(n);
@@ -110,42 +114,42 @@ function decode(text){
   // post read processing (maybe move tp processing here if things break)
   sortByTime(project.notes);
   sortByTime(project.timingPoints);
-  sortByTime(globalSvBlock.func.nodes);
+  velocity.sort();
 
   // globalSvBlock.snapToMs({useSelfForUnknown: true});
   // console.log(globalSvBlock);
 
   // base bpm
   const baseBpm = calculateBaseBpm(project).baseBpm;
-  const start = project.notes[0].t;
-  const end = project.notes[project.notes.length-1].getEnd();
   let firstTimingPoint = project.timingPoints[0].t;
-  globalSvBlock.scaleX(1/baseBpm);
+  velocity.scaleX(1/baseBpm);
 
   // normalization
-  const globalNormalizationBlock = new SvBlock(SvBlock.Operation.NORMALIZE, 4);
+  // const globalSvBlock = new SvBlock(SvBlock.Operation.SET);
+  // const globalNormalizationBlock = new SvBlock(SvBlock.Operation.NORMALIZE, 4);
   const notePositions = [...new Set(project.notes.map(x => [x.t, x.t$]).flat().filter(x => x !== void 0))].sort((a,b)=>a-b); // splits
 
-  if(notePositions[0] > firstTimingPoint) notePositions.unshift(firstTimingPoint);
+  if(notePositions[0] < firstTimingPoint) notePositions.unshift(firstTimingPoint);
 
   // console.log(notePositions);
 
-  const speeds = globalSvBlock.func;
+  // const speeds = globalSvBlock.func;
   for(let i = 0; i < notePositions.length-1; i ++){
     const normalized = notePositions[i+1] - notePositions[i];
-    const observed = speeds.integrate(notePositions[i], notePositions[i+1]);
+    const observed = velocity.integrate(notePositions[i], notePositions[i+1]);
     // console.log(notePositions[i], notePositions[i+1], normalized, observed, observed/normalized);
     const average = observed/normalized;
-    // globalSvBlock.scaleX(1/average, notePositions[i]-notePositions[0], notePositions[i+1]-notePositions[0]);
-    globalNormalizationBlock.setPoint(notePositions[i]-notePositions[0], average);
+    // // globalSvBlock.scaleX(1/average, notePositions[i]-notePositions[0], notePositions[i+1]-notePositions[0]);
+    // globalNormalizationBlock.setPoint(notePositions[i]-notePositions[0], average);
+    normalization.addPoint(notePositions[i], average);
   }
 
-  globalSvBlock.offsetT(-Math.floor(firstTimingPoint)); // NOTE : might be okay to keep original offsets
-  globalSvBlock.func.nodes[0].t = 0;
-  globalSvBlock.t = Math.floor(firstTimingPoint);
-  globalSvBlock.duration = end-firstTimingPoint;
-  globalNormalizationBlock.t = notePositions[0];
-  globalNormalizationBlock.duration = notePositions[notePositions.length-1] - notePositions[0];
+  // globalSvBlock.offsetT(-Math.floor(firstTimingPoint)); // NOTE : might be okay to keep original offsets
+  // globalSvBlock.func.nodes[0].t = 0;
+  // globalSvBlock.t = Math.floor(firstTimingPoint);
+  // globalSvBlock.duration = end-firstTimingPoint;
+  // globalNormalizationBlock.t = notePositions[0];
+  // globalNormalizationBlock.duration = notePositions[notePositions.length-1] - notePositions[0];
 
   /*const blocks = [globalSvBlock];
   let splits = [...new Set(project.notes.map(x => [x.t, x.t$]).flat().filter(x => x !== void 0 && x > firstTimingPoint ))].sort((a,b)=>a-b);
@@ -156,8 +160,14 @@ function decode(text){
   }
   blocks.forEach(block => project.svColumns[0].addBlock(block));*/
 
-  project.addBlock(globalSvBlock);
-  project.addBlock(globalNormalizationBlock); // TODO: do that [...arguments] thingy
+  // project.addBlock(globalSvBlock);
+  // project.addBlock(globalNormalizationBlock); // TODO: do that [...arguments] thingy
+  // console.log(velocity, normalization);
+  velocity.cull();
+  normalization.cull();
+  project.vel2 = velocity;
+  project.addBlock(...velocity.exportAsBlocks(SvBlock.Operation.SET, 0, end));
+  project.addBlock(...normalization.exportAsBlocks(SvBlock.Operation.NORMALIZE, 4, end));
   return project;
 }
 function encode(project){

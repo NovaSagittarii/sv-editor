@@ -5,6 +5,9 @@ class Note {
     // this.hs = 0;
     // this.sample
   }
+  getStart(){
+    return this.t;
+  }
   getEnd(){
     return this.t;
   }

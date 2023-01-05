@@ -18,7 +18,8 @@ function exportProject(){
 function normalizeProjectExport(){
   // project.blocks[1].func.openEditor(); // TODO : setup promise stuff on openEditor since it takes some time to load
   // setTimeout( () => {
-    project.blocks[1].func.editor.points.forEach(p => p.setX(1))
+    // project.blocks[1].func.editor.points.forEach(p => p.setX(1))
+    project.blocks.filter(b => b.x == 4).forEach(b => b.func.set([0, 1]));
     exportProject();
   // }, 500);
 }

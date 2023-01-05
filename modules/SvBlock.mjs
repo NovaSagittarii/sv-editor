@@ -1,6 +1,7 @@
 import { PFunc } from './PFunc.mjs';
 
 const operationEnum = {};
+const operationNames = {};
 const operations = {
   /*
   Operation: fn(x, y)
@@ -18,18 +19,23 @@ const operations = {
 Object.keys(operations).forEach(operation => {
   const symbol = Symbol('sv:'+operation.toLowerCase());
   operationEnum[operation.toUpperCase()] = symbol;
+  operationNames[symbol] = operation;
   operations[symbol] = operations[operation];
   // i feel like this aint very good but uhh well its readable at least???
 });
 
 class SvBlock {
   static Operation = operationEnum;
-  constructor(operation=SvBlock.Operation.SET, col=0){
+  constructor(operation=SvBlock.Operation.SET, col=0, t=0, duration=0){
+    // if(t !== Math.round(t)) throw `expected integer t, observed t=${t}`;
     this.x = col;
     this.operation = operation;
     this.func = new PFunc(this);
-    this.t = 0;
-    this.duration = 0;
+    this.t = t;
+    this.duration = duration;
+  }
+  getLabel(){
+    return operationNames[this.operation] + " " + this.func.getLabel();
   }
   integrate(a, b){ return this.func.integrate(a-this.t, b-this.t); }
   evaluate(t){ return this.func.evaluate(t-this.t); }
@@ -64,44 +70,9 @@ class SvBlock {
   applyOnto(velocityArray/*, resolution*/){ // TODO : resolution for fast rendering??
     let _start = performance.now(), _prep = 0, _apply = 0;
     const nodes = this.func.nodes;
-    /* let i = 0;
-    for(let t = Math.ceil(this.start); t < Math.floor(this.start + this.duration); t ++){
-      while(t >= nodes[i+1]?.t){
 
-      }
-      // maybe t loop while incrementing nodes would be better?? currently just going with antiderivative/prefix sum method though
-    } */
-    /*const antiderivative = [...new Array(Math.ceil(this.duration))];
-    const values = antiderivative.slice(0);
-    let t = 0, i = 0, accumulator = 0, carry = 0;
-    let nextTime = (nodes[i+1]?.t||this.duration);
-    while(t < this.duration){
-      if(t >= nextTime){
-        while(t >= nextTime){
-          // constant approximation for subdecimal. TODO: Linear approximation ?
-          carry += nodes[i].x * Math.min(nodes[i].t%1, nodes[i].t - (nodes[i-1]?.t||0));
-          if(nodes[i+1]) i ++;
-          t = nodes[i].t;
-          carry += nodes[i].x * Math.min((nodes[i+1]?.t||this.duration)-t, 1 - (t % 1));
-          t = Math.ceil(t);
-          nextTime = (nodes[i+1]?.t||Infinity); // dont happen again once reaching end
-        }
-      }else{
-        carry += nodes[i].x; // TODO : easing behaviors here
-      }
-      accumulator += (values[t] = Math.min(13720, carry)); // smallest ms necessary for teleport (?)
-      // accumulator = Math.max(0, accumulator + Math.min(13720, carry)); // TODO : handle negative stuff?
-      antiderivative[t] = accumulator;
-      if(t< 100) console.log(carry);
-      t ++;
-      carry = 0;
-    }
-    console.log(values.slice(0, 100));*/
-    // do desmos stuff here maybe
-
-    // integrate function
     let appliedValues = [...new Array(Math.ceil(this.duration))];
-    (function(T, DURATION){
+    ((T, DURATION) => {
       let sum = 0;
       let i = 0;
       let t, a, b;
@@ -109,18 +80,17 @@ class SvBlock {
       let globalOffset = Math.floor(T)+1; // idk why but its off by 1 (shift it all down 1 and then its all good)
       let largestSum = 0;
       for(let k = 0; k < DURATION; k ++){
-        sum = 0;
-        t = a = localOffset+k;
-        b = a + 1;
-        while(nodes[i+1]?.t <= t) i ++;
-        while(nodes[i+1]?.t < b){
-          sum += Math.min((nodes[i+1].t-t) * nodes[i].x, 1e6*1e4);
-          t = nodes[i+1].t;
-          i ++;
-        }
-        if(t < b) sum += Math.max(0, b-t) * nodes[i].x;
+        sum = this.evaluate(k);
+        // t = a = localOffset+k;
+        // b = a + 1;
+        // while(nodes[i+1]?.t <= t) i ++;
+        // while(nodes[i+1]?.t < b){
+        //   sum += Math.min((nodes[i+1].t-t) * nodes[i].x, 1e6*1e4);
+        //   t = nodes[i+1].t;
+        //   i ++;
+        // }
+        // if(t < b) sum += Math.max(0, b-t) * nodes[i].x;
         appliedValues[globalOffset+k] = sum;
-        if(k < 5 || (globalOffset+k) === 13902) console.log(globalOffset+k, sum, a, b, i);
         if(sum > largestSum) largestSum = sum;
       }
       console.log("largest value over 1ms", largestSum);

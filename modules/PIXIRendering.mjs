@@ -1,3 +1,5 @@
+"use strict";
+
 import * as Notes from './Notes.mjs';
 import SvBlock from './SvBlock.mjs';
 import {OutlineFilter} from './OutlineFilter.mjs';
@@ -139,25 +141,25 @@ class RenderedSvBlock extends RenderedObject {
     body.drawRect(0, 0, 25, 1);
     body.beginFill(0xefaa0a);
     body.drawRect(25, 0, 25, 1);
-    body.alpha = 0.8; // to check for overlap
-    this.graphicsDebugDisplay = new PIXI.Text("", {
+    body.alpha = 0.5; // to check for overlap
+    /*this.graphicsDebugDisplay = new PIXI.Text("", {
       fontName: "Arial",
       fontSize: 12,
       align: "center"
-    });
-    const tx = this.graphicsLabel = new PIXI.Text(linked.operation.toString().replace(/^[^\(]*\(|\)$/g,''), { // TODO: maybe use bitmaptext later
+    });*/
+    const tx = this.graphicsLabel = new PIXI.Text(linked.getLabel(), { // TODO: maybe use bitmaptext later
       fontName: "Arial",
       fontSize: 12,
       align: "right"
-    }); /* TODO: render other types of sv block */
+    }); // TODO: render other types of sv block
     tx.position.y = -tx.height;
     const line = this.graphicsLine = new PIXI.Graphics();
     this.renderThumbnail();
     body.addChild(line);
-    g.addChild(body, tx, this.graphicsDebugDisplay);
+    g.addChild(body, tx); //, this.graphicsDebugDisplay
     g.interactive = true;
     g.on('pointerover', () => body.alpha = 1);
-    g.on('pointerout', () => body.alpha = 0.8);
+    g.on('pointerout', () => body.alpha = 0.5);
     g.on('pointerdown', e => {
       if(!this.linked.func.editor){
         this.linked.func.openEditor(this, baseEditor);
@@ -167,6 +169,7 @@ class RenderedSvBlock extends RenderedObject {
     });
   }
   renderThumbnail(){ // the thing shown on the rectangle for the svBlock
+    return; // TODO: implement render
     const l = this.graphicsLine;
     l.clear();
     let x;
@@ -228,7 +231,6 @@ export {
   RenderedNote as Note,
   RenderedLongNote as LongNote,
   RenderedSvBlock as SvBlock,
-  // RenderedSvColumn as SvColumn,
   from,
   RenderedObject
 };

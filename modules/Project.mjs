@@ -182,9 +182,9 @@ height:100vh;`;
         svBlockEditor.setTimeScale(this.z);
         svBlockEditor.setTime(this.t-block.t);
       }
-      b.graphicsDebugDisplay.text = block.func.evaluate(this.t - block.t).toFixed(3) + 'x';
+      /* b.graphicsDebugDisplay.text = block.func.evaluate(this.t - block.t).toFixed(3) + 'x';
       b.graphicsDebugDisplay.position.y = -this.dynamicStage.position.y - b.graphics.position.y;
-      b.graphicsDebugDisplay.anchor.set(0, 0);
+      b.graphicsDebugDisplay.anchor.set(0, 0); */
     });
 
     // some tree structure seems appropriate for culling (esp since they dont move around much)
@@ -292,9 +292,11 @@ class Project {
 
     reader.readAsDataURL(audioData);
   }
-  addBlock(block){
-    this.blocks.push(block);
-    this.editor?.addBlock(block);
+  addBlock(){
+    for(const block of arguments){
+      this.blocks.push(block);
+      this.editor?.addBlock(block);
+    }
     // TODO: X shifting if collisions
   }
   calculateSpeedOutput(){
