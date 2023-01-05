@@ -26,6 +26,9 @@ class Function {
   evaluate(t){
     return this.func(...arguments);
   }
+  isConstant(){
+    return this.name === "Constant";
+  }
 }
 
 /*

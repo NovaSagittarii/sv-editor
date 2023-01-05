@@ -96,6 +96,8 @@ class SvBuilder {
         }
       }
     }
+    this.points.splice(0);
+    this.points = temp;
     // if(carry) console.warn("residual at end", {carry, t});
     this.aligned = true;
   }

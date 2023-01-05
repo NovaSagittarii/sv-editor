@@ -170,6 +170,9 @@ class PFunc {
     this.editor = null;
     this.linked = parent;
   }
+  isConstant(){
+    return this.function.isConstant();
+  }
   getLabel(){
     return this.function.getLabel(this.params);
   }

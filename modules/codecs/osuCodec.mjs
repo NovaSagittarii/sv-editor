@@ -164,7 +164,7 @@ function decode(text){
   // project.addBlock(globalNormalizationBlock); // TODO: do that [...arguments] thingy
   // console.log(velocity, normalization);
   velocity.cull();
-  normalization.cull();
+  // normalization.cull(); // TODO: export using known note positions
   project.addBlock(...velocity.exportAsBlocks(SvBlock.Operation.SET, 0, end));
   project.addBlock(...normalization.exportAsBlocks(SvBlock.Operation.NORMALIZE, 4, end));
   return project;

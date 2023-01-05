@@ -1,8 +1,8 @@
 import { PFunc } from './PFunc.mjs';
 
-const operationEnum = {};
-const operationNames = {};
-const operations = {
+const OperationEnum = {};
+const OperationNames = {};
+const Operations = {
   /*
   Operation: fn(x, y)
     x[] : current sv
@@ -16,16 +16,16 @@ const operations = {
   intensify: (x) => x, // TODO
   normalize: (x) => x, // TODO
 };
-Object.keys(operations).forEach(operation => {
+Object.keys(Operations).forEach(operation => {
   const symbol = Symbol('sv:'+operation.toLowerCase());
-  operationEnum[operation.toUpperCase()] = symbol;
-  operationNames[symbol] = operation;
-  operations[symbol] = operations[operation];
+  OperationEnum[operation.toUpperCase()] = symbol;
+  OperationNames[symbol] = operation;
+  Operations[symbol] = Operations[operation];
   // i feel like this aint very good but uhh well its readable at least???
 });
 
 class SvBlock {
-  static Operation = operationEnum;
+  static Operation = OperationEnum;
   constructor(operation=SvBlock.Operation.SET, col=0, t=0, duration=0){
     // if(t !== Math.round(t)) throw `expected integer t, observed t=${t}`;
     this.x = col;
@@ -35,7 +35,7 @@ class SvBlock {
     this.duration = duration;
   }
   getLabel(){
-    return operationNames[this.operation] + "\n" + this.func.getLabel();
+    return OperationNames[this.operation] + "\n" + this.func.getLabel();
   }
   integrate(a, b){ return this.func.integrate(a-this.t, b-this.t); }
   evaluate(t){ return this.func.evaluate(t-this.t); }
@@ -68,75 +68,31 @@ class SvBlock {
     return remainder;
   }
   applyOnto(velocityArray/*, resolution*/){ // TODO : resolution for fast rendering??
-    let _start = performance.now(), _prep = 0, _apply = 0;
-    const nodes = this.func.nodes;
+    // consider binary index tree?
+    let start = this.t, end = start + this.duration;
+    if(start !== Math.round(start) || end !== Math.round(end)) throw ["expected integer times", this];
 
-    let appliedValues = [...new Array(Math.ceil(this.duration))];
-    ((T, DURATION) => {
-      let sum = 0;
-      let i = 0;
-      let t, a, b;
-      let localOffset = 1-(T%1);
-      let globalOffset = Math.floor(T)+1; // idk why but its off by 1 (shift it all down 1 and then its all good)
-      let largestSum = 0;
-      for(let k = 0; k < DURATION; k ++){
-        sum = this.evaluate(k);
-        // t = a = localOffset+k;
-        // b = a + 1;
-        // while(nodes[i+1]?.t <= t) i ++;
-        // while(nodes[i+1]?.t < b){
-        //   sum += Math.min((nodes[i+1].t-t) * nodes[i].x, 1e6*1e4);
-        //   t = nodes[i+1].t;
-        //   i ++;
-        // }
-        // if(t < b) sum += Math.max(0, b-t) * nodes[i].x;
-        appliedValues[globalOffset+k] = sum;
-        if(sum > largestSum) largestSum = sum;
-      }
-      console.log("largest value over 1ms", largestSum);
-    })(this.t, this.duration);
-
-    for(let i = 0; i < nodes.length; i ++){ // NOTE TODO : handle decimal point times!!!
-      let node = nodes[i];
-      let start = node.t + this.t;
-      let end = (nodes[i+1]?.t || this.duration) + this.t;
-      let func = x => x;
-      let y = node.x; // TODO : easing behaviors here
-
-      let _start = performance.now();
-      switch(this.operation){
-        case SvBlock.Operation.SET:
-        case SvBlock.Operation.ADD:
-        case SvBlock.Operation.SUBTRACT:
-        case SvBlock.Operation.MULTIPLY:
-        case SvBlock.Operation.DIVIDE:
-        case SvBlock.Operation.INTENSIFY:
-          func = operations[this.operation];
-          // y = undefined;
-          break;
-        case SvBlock.Operation.NORMALIZE:
-          func = operations.multiply;
-          let displacement = 0;
-          for(let x = Math.round(start); x < end; x ++) displacement += velocityArray[x];
-          y = y*(end - start) / displacement;
-          appliedValues = [];
-          break;
-      }
-      _prep += performance.now() - _start;
-      _start = performance.now();
-      // if(i < 10) console.log(start, end, y);
-      // if(y === null) throw {error: "y val was not set", obj: this};
-      for(let t = Math.round(start); t < end; t ++){
-        // velocityArray[t] = func(velocityArray[t], y);
-        // velocityArray[t] = func(velocityArray[t], y !== undefined ? y : values[Math.round(t-this.t)]);
-        velocityArray[t] = func(velocityArray[t], appliedValues[t] !== undefined ? appliedValues[t] : y);
-      }
-      _apply += performance.now() - _start;
+    let y = null, func;
+    switch(this.operation){
+      case SvBlock.Operation.SET:
+      case SvBlock.Operation.ADD:
+      case SvBlock.Operation.SUBTRACT:
+      case SvBlock.Operation.MULTIPLY:
+      case SvBlock.Operation.DIVIDE:
+      case SvBlock.Operation.INTENSIFY:
+        func = Operations[this.operation];
+        if(this.func.isConstant()) y = this.evaluate(start);
+        break;
+      case SvBlock.Operation.NORMALIZE:
+        func = Operations.multiply;
+        let displacement = 0;
+        for(let x = Math.round(start); x < end; x ++) displacement += velocityArray[x];
+        y = this.evaluate(start) * (end - start) / displacement;
+        break;
     }
-    // console.log(velocityArray.slice(0, 100));
-    console.log("-- prep total", 0|_prep, "ms");
-    console.log("-- apply total", 0|_apply, "ms");
-    console.log(this.operation, "took", 0|(performance.now() - _start), "ms", `applied ${nodes.length} nodes`);
+    for(let t = start; t < end; t ++){
+      velocityArray[t] = func(velocityArray[t], y !== null ? y : this.evaluate(t));
+    }
     return velocityArray;
   }
   snapToMs(opts){
