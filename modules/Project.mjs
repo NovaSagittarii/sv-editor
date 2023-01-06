@@ -2,6 +2,8 @@ import { Note, LongNote } from './Notes.mjs';
 import * as Rendered from './PIXIRendering.mjs';
 import SpriteRenderer from './PIXIRenderedSprites.mjs'
 
+import { Cull } from '@pixi-essentials/cull';
+
 // console.log(Rendered);
 
 class ProjectEditor {
@@ -30,6 +32,10 @@ height:100vh;`;
         resolution: 1
       }
     );
+    const cull = new Cull({ recursive: true, toggle: 'renderable' });
+    cull.add(app.stage);
+    app.renderer.on('prerender', () => cull.cull(app.renderer.screen));
+
     this.sprites = new SpriteRenderer(app);
     const dynamic = this.dynamicStage = new PIXI.Container();
     this.t = 0;
