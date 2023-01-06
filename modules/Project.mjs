@@ -37,7 +37,8 @@ height:100vh;`;
     // app.renderer.on('prerender', () => cull.cull(app.renderer.screen));
 
     this.sprites = new SpriteRenderer(app);
-    const dynamic = this.dynamicStage = new PIXI.Container();
+    const dynamic = this.dynamicStage = new PIXI.Container(); // editor side
+    const projected = this.projectedStage = new PIXI.Container(); // result side
     this.t = 0;
     this.prevSnap = 0; // if we're gonna be rendering measurelines might as well use them :D
     this.nextSnap = 0;
@@ -118,6 +119,10 @@ height:100vh;`;
     this.notes = linked.notes.map(note => {
       const n = Rendered.from(note);
       dynamic.addChild(n.graphics);
+      const n2 = Rendered.from(note);
+      note.projected = n2;
+      n2.setTimeScale(1); // TODO: uhh i'll sync this later
+      projected.addChild(n2.graphics);
       return n;
     }); // TODO: implement and use this.addNote instead
 
@@ -129,9 +134,19 @@ height:100vh;`;
     line.scale.x = (this.bounds.resultRight - this.bounds.noteLeft) / line.width;
     line.scale.y = 3;
     line.alpha = 0.8;
+    let line2 = new Rendered.Line().graphics;
+    line.position.set(this.bounds.liveLeft, 0);
+    line.scale.x = (this.bounds.liveRight - this.bounds.liveLeft) / line.width;
+    line.scale.y = 2;
+    line.alpha = 0.8;
+
+    projected.position.x = this.bounds.resultRight;
+    projected.scale.x = 0.5;
+
+    this.refreshOutput();
 
     this.setTime();
-    app.stage.addChild(dynamic, line);
+    app.stage.addChild(dynamic, projected, line, line2);
     this.htmlElement.append(app.view);
     document.body.append(this.htmlElement);
 
@@ -142,6 +157,7 @@ height:100vh;`;
     this.app.stage.pivot.y = -(this.app.view.height-100);
     // this.dynamicStage.pivot.y = 40; // nudge up everything
     this.dynamicStage.position.y = this.t*this.z;
+    this.projectedStage.position.y = this.displacement[~~this.t];
 
     let i = 0;
     let currentTimingPoint = this.linked.timingPoints[0]; // TODO: use something O(1) instead of O(n)
@@ -204,7 +220,7 @@ height:100vh;`;
     this.renderedMaxT = this.t - (minY + (this.app.view.height-100))/this.z;
     this.notes.forEach(n => {
       const bounds = n.graphics.getBounds();
-      n.graphics.renderable = bounds.y+bounds.height>=minY && bounds.y-bounds.height <= maxY;
+      n.graphics.renderable = n.linked.projected.graphics.renderable = bounds.y+bounds.height>=minY && bounds.y-bounds.height <= maxY;
     })
     this.blocks.forEach(n => {
       const bounds = n.graphics.getBounds();
@@ -246,6 +262,17 @@ height:100vh;`;
     this.dynamicStage.addChild(b.graphics);
     this.blocks.push(b);
     return b;
+  }
+  refreshOutput(){
+    this.linked.calculateSpeedOutput(); // TODO: only update portions instead of refreshing the entire thing
+    this.displacement = [...new Array(this.linked.speed.length)];
+    for(let i in this.displacement){
+      this.displacement[i] = (this.displacement[i-1]||0) + Math.min(1e3, this.linked.speed[i]);
+    }
+    this.linked.notes.forEach(n => {
+      n.projected.setTime(this.displacement[n.t], n.t$&&this.displacement[n.t$]);
+      n.projected.setTimeScale(1);
+    });
   }
 }
 

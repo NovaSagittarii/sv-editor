@@ -5,15 +5,18 @@ import SvBlock from './SvBlock.mjs';
 import {OutlineFilter} from './OutlineFilter.mjs';
 
 class RenderedObject {
-  constructor(linked){
-    this.linked = linked;
+  constructor(linked={}){
+    this.linked = linked; // TODO: disconnect RenderedObject from Object? (other way might make more sense)
+    const {t} = linked;
+    Object.assign(this, {t});
+
     this.selected = false;
     this.graphics = null;
     // this.z = 1;
   }
   setTimeScale(timeScale){
     // this.z = timeScale;
-    return this.graphics.position.y = ~~(-this.linked.t * timeScale);
+    return this.graphics.position.y = ~~(-this.t * timeScale);
   }
   select(){
     this.selected = true;
@@ -81,6 +84,8 @@ class RenderedLine extends RenderedObject {
 class RenderedNote extends RenderedObject {
   constructor(linked, editor){
     super(linked);
+    let {x, y, t} = linked;
+    Object.assign(this, {x, y, t})
     let g;
     if(editor){
       g = this.graphics = new PIXI.Sprite(editor.sprites.Note);
@@ -90,13 +95,18 @@ class RenderedNote extends RenderedObject {
       g.drawRect(0, 0, 100, 40);
     }
     g.pivot.set(0, g.height); // nudge up
-    g.position.set(linked.x*100, -linked.t);
+    g.position.set(this.x*100, -this.t);
+  }
+  setTime(t){ // method for live replay
+    this.graphics.position.y = -(this.t = t);
   }
 }
 
 class RenderedLongNote extends RenderedObject {
   constructor(linked, editor){
     super(linked);
+    let {x, y, t, t$} = linked;
+    Object.assign(this, {x, y, t, t$})
     const g = this.graphics = new PIXI.Container();
     let head, tail, body;
     if(editor){
@@ -115,17 +125,21 @@ class RenderedLongNote extends RenderedObject {
       body.drawRect(15, 0, 70, 1);
     }
 
-    tail.position.y = -(linked.t$ - linked.t);
+    tail.position.y = -(this.t$ - this.t);
     body.scale.y = tail.position.y - head.height - tail.height;
 
     g.addChild(body, head, tail);
     g.pivot.set(0, head.height); // nudge up so (0,0) is the visually the very bottom
-    g.position.set(linked.x*100, -linked.t);
+    g.position.set(this.x*100, -this.t);
+  }
+  setTime(start, end){
+    this.t = start;
+    this.t$ = end;
   }
   setTimeScale(timeScale){
     // this.z = timeScale;
-    this.graphics.position.y = ~~(-this.linked.t * timeScale);
-    this.graphicsTail.position.y = ~~(-(this.linked.t$ - this.linked.t) * timeScale);
+    this.graphics.position.y = ~~(-this.t * timeScale);
+    this.graphicsTail.position.y = ~~(-(this.t$ - this.t) * timeScale);
     this.graphicsBody.scale.y = ~~(-(Math.abs(this.graphicsTail.position.y) - this.graphicsTail.height));
   }
 }
