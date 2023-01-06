@@ -264,15 +264,17 @@ height:100vh;`;
     return b;
   }
   refreshOutput(){
+    let _start = performance.now();
     this.linked.calculateSpeedOutput(); // TODO: only update portions instead of refreshing the entire thing
     this.displacement = [...new Array(this.linked.speed.length)];
     for(let i in this.displacement){
       this.displacement[i] = (this.displacement[i-1]||0) + Math.min(1e3, this.linked.speed[i]);
     }
-    this.linked.notes.forEach(n => {
-      n.projected.setTime(this.displacement[n.t], n.t$&&this.displacement[n.t$]);
+    this.linked.notes.forEach(n => { // TODO: good question why its -1, probably some off by one error.. but fix that later
+      n.projected.setTime(this.displacement[n.t-1]||0, n.t$&&this.displacement[n.t$-1]||0);
       n.projected.setTimeScale(1);
     });
+    console.log("= total refresh time", 0|(performance.now()-_start), "ms")
   }
 }
 
