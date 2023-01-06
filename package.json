@@ -2,7 +2,6 @@
   "name": "sv-editor2",
   "version": "1.0.0",
   "description": "another osu mania editor but it's designed for an easier SV editing experience, now with more features and for practice with ES modules, howler and pixiJS :^)",
-  "homepage": "https://novasagittarii.github.io/sv-editor/",
   "main": "parser.js",
   "directories": {
     "lib": "lib"
