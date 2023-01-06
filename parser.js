@@ -2,6 +2,13 @@ import { Note, LongNote } from './modules/Notes.mjs';
 import * as osu from './modules/codecs/osuCodec.mjs';
 // console.log(osu);
 
+// PIXI setup
+/*PIXI.BitmapFont.from('Arial', {
+  fontName: "Arial",
+  fontSize: 12,
+  chars: [['a', 'z'], ['A', 'Z'], "!@#$%^&*()~{}[],.<>/ "],
+});*/
+
 // folder input
 (() => {
   let inputFile = document.getElementById('folder');
