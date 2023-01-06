@@ -18,8 +18,7 @@ class PFuncEditor {
     buttonMove.addEventListener('mousedown', e => {
       let {screenX, screenY} = e;
       document.body.addEventListener('mouseup', e => {
-        this.htmlElement.style.left = (this.x += e.screenX - screenX) + 'px';
-        this.htmlElement.style.top = (this.y += e.screenY - screenY) + 'px';
+        this.setPosition(this.x + e.screenX - screenX, this.y + e.screenY - screenY);
       }, {once: true});
     });
     const buttonClose = document.createElement("button");
@@ -111,6 +110,10 @@ class PFuncEditor {
   }
   refresh(){
     this.renderedSvBlock.render(); // TODO : setup delay to avoid consecutive rerender
+  }
+  setPosition(x, y){
+    this.htmlElement.style.left = (this.x = x) + "px";
+    this.htmlElement.style.top = (this.y = y) + "px";
   }
 }
 

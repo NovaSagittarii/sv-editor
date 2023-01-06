@@ -32,9 +32,9 @@ height:100vh;`;
         resolution: 1
       }
     );
-    const cull = new Cull({ recursive: true, toggle: 'renderable' });
-    cull.add(app.stage);
-    app.renderer.on('prerender', () => cull.cull(app.renderer.screen));
+    // const cull = new Cull({ recursive: true, toggle: 'renderable' });
+    // cull.add(app.stage);
+    // app.renderer.on('prerender', () => cull.cull(app.renderer.screen));
 
     this.sprites = new SpriteRenderer(app);
     const dynamic = this.dynamicStage = new PIXI.Container();
@@ -194,9 +194,7 @@ height:100vh;`;
     // });
 
     // some tree structure seems appropriate for culling (esp since they dont move around much)
-    if(this.renderedMinT === void 0 || (this.t < this.renderedMinT || this.t > this.renderedMaxT)){
-      this.refreshCulling();
-    }
+    if(this.renderedMinT === void 0 || (this.t < this.renderedMinT || this.t > this.renderedMaxT)) this.refreshCulling();
   }
   refreshCulling(){ // return;
     const viewport = this.app.screen;
@@ -206,8 +204,11 @@ height:100vh;`;
     this.renderedMaxT = this.t - (minY + (this.app.view.height-100))/this.z;
     this.notes.forEach(n => {
       const bounds = n.graphics.getBounds();
-      n.graphics.renderable = bounds.y+bounds.height>=minY &&
-        bounds.y-bounds.height <= maxY;
+      n.graphics.renderable = bounds.y+bounds.height>=minY && bounds.y-bounds.height <= maxY;
+    })
+    this.blocks.forEach(n => {
+      const bounds = n.graphics.getBounds();
+      n.graphics.renderable = bounds.y+bounds.height>=minY && bounds.y-bounds.height <= maxY;
     })
   }
   setTimeScale(z){
@@ -306,10 +307,12 @@ class Project {
     // TODO: X shifting if collisions
   }
   calculateSpeedOutput(){
+    this.editor?.app.stop();
     let _start = performance.now();
     this.blocks.sort((a,b) => a.x-b.x || a.t-b.t); // TODO : check for collisions ?? (currently assumes no collision)
     this.speed = [...new Array(this.notes[this.notes.length-1].getEnd())].map(() => 1);
     for(const block of this.blocks) block.applyOnto(this.speed);
+    this.editor?.app.start();
     console.log("== total calculation time", 0|(performance.now()-_start), "ms")
   }
 }
