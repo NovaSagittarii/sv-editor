@@ -11,7 +11,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "npx webpack serve",
     "build": "npx webpack",
-    "deploy": "npm run build && gh-pages -d ."
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d ."
   },
   "repository": {
     "type": "git",
