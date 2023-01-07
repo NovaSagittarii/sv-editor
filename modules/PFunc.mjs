@@ -51,7 +51,7 @@ class PFuncEditor {
     const functionFamilyInput = document.createElement('select');
     Object.entries(Functions).forEach(([functionName, func]) => {
       const option = document.createElement('option');
-      option.selected = func === this.function;
+      option.selected = func === this.linked.function;
       option.innerText = functionName;
       option.value = functionName;
       functionFamilyInput.append(option);
