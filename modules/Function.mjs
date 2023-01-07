@@ -32,6 +32,12 @@ const Functions = {
   Linear: new Function("Linear", ["x1", "x2"],
     (t, t0, x0, x, y) => (x0+x*(1-t)+y*t),
     (t0, x0, x, y) => `${(x+x0).toPrecision(2)} to ${(y+x0).toPrecision(2)}`),
+  Sine: new Function("Sine", ["A", "f"],
+    (t, t0, x0, A, f) => x0+A*Math.sin(((t+t0)*Math.PI*2*f)),
+    (t0, x0, A, f) => `sin ${(x0-A).toPrecision(2)} to ${(x0+A).toPrecision(2)} @ ${f.toPrecision(2)}Hz`),
+  Square: new Function("Square", ["A", "f", "DC"],
+    (t, t0, x0, A, f, DC) => x0+((((t+t0)*f)%1)<DC?A:0),
+    (t0, x0, A, f, DC) => `sqr ${(x0).toPrecision(2)} to ${(x0+A).toPrecision(2)} @ ${f.toPrecision(2)}Hz ${(DC*100).toPrecision(3)}%`),
 };
 Object.entries(Functions).forEach(([name, func]) => {
   Object.defineProperty(Function, name, {

@@ -11,7 +11,7 @@ class PFuncEditor {
 
     this.htmlElement = document.createElement("div");
     this.htmlElement.style = `position: absolute; background: #f3f3ed80`;
-    const buttonMove = document.createElement("button");
+    const buttonMove = this.descriptionHTMLElement = document.createElement("button");
     this.x = 0;
     this.y = 0;
     buttonMove.innerText = this.linked.getLabel();
@@ -109,6 +109,7 @@ class PFuncEditor {
     this.refresh();
   }
   refresh(){
+    this.descriptionHTMLElement.innerText = this.linked.getLabel();
     this.renderedSvBlock.render(); // TODO : setup delay to avoid consecutive rerender
   }
   setPosition(x, y){
