@@ -135,13 +135,17 @@ height:100vh;`;
     line.scale.y = 3;
     line.alpha = 0.8;
     let line2 = new Rendered.Line().graphics;
-    line.position.set(this.bounds.liveLeft, 0);
-    line.scale.x = (this.bounds.liveRight - this.bounds.liveLeft) / line.width;
-    line.scale.y = 2;
-    line.alpha = 0.8;
+    line2.position.set(this.bounds.liveLeft, 1);
+    line2.scale.x = (this.bounds.liveRight - this.bounds.liveLeft) / line2.width;
+    line2.scale.y = 3;
+    line2.alpha = 1;
 
     projected.position.x = this.bounds.resultRight;
     projected.scale.x = 0.5;
+
+    const result = this.resultGraphics = new PIXI.Graphics();
+    result.position.set(this.bounds.resultLeft, 1);
+    dynamic.addChild(result);
 
     this.refreshOutput();
 
@@ -226,6 +230,7 @@ height:100vh;`;
       const bounds = n.graphics.getBounds();
       n.graphics.renderable = bounds.y+bounds.height>=minY && bounds.y-bounds.height <= maxY;
     })
+    this.refreshResult();
   }
   setTimeScale(z){
     // y = zt
@@ -275,6 +280,25 @@ height:100vh;`;
       n.projected.setTimeScale(1);
     });
     console.log("= total refresh time", 0|(performance.now()-_start), "ms")
+    this.refreshResult();
+  }
+  refreshResult(){
+    const result = this.resultGraphics;
+    result.clear();
+    result.pivot.set(0, 0);
+    result.position.set(0, 0);
+    result.scale.set(1, 1);
+    result.lineStyle(2, "0x000000");
+    const buffer = Math.floor(this.renderedMaxT-this.renderedMinT);
+    const start = Math.max(0, Math.floor(this.renderedMinT - buffer));
+    const end = Math.min(this.linked.speed.length, Math.floor(this.renderedMaxT + buffer));
+    result.moveTo(Math.min(100, Math.max(0, this.linked.speed[start]*25)), 0);
+    for(let i = start; i <= end; i ++){
+      result.lineTo(Math.min(100, Math.max(0, this.linked.speed[i]*25)), i-start);
+    }
+    // result.pivot.set(0, result.height);
+    result.position.set(this.bounds.resultLeft, ~~(-start*this.z));
+    result.scale.set(1, -this.z);
   }
 }
 
