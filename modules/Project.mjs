@@ -1,12 +1,18 @@
 import { Note, LongNote } from './Notes.mjs';
 import * as Rendered from './PIXIRendering.mjs';
 import SpriteRenderer from './PIXIRenderedSprites.mjs'
+import { SvBlock } from './SvBlock.mjs';
 
 import { Cull } from '@pixi-essentials/cull';
+
+const Actions = Object.freeze({
+  PlaceSVBlock: Symbol("place sv block"),
+});
 
 // console.log(Rendered);
 
 class ProjectEditor {
+  static Actions = Actions;
   constructor(linked){
     this.bounds = {
       noteLeft: 0,
@@ -40,16 +46,20 @@ height:100vh;`;
     const dynamic = this.dynamicStage = new PIXI.Container(); // editor side
     const projected = this.projectedStage = new PIXI.Container(); // result side
     this.t = 0;
+    this.mouseX = this.mouseY = this.mouseT = 0;
+    this.mouseOver = null;
+    this.mouseAction = null;
     this.prevSnap = 0; // if we're gonna be rendering measurelines might as well use them :D
     this.nextSnap = 0;
     this.prevMeasure = 0;
     this.nextMeasure = 0;
     this.z = 0.01;
     this.subdivisions = 4;
-    /*app.view.addEventListener('mousemove', e => {
-      if(this.mouseOver) this.mouseOver.graphics.tint = 0xFFFFFF;
-      const dy = e.offsetY - (project.editor.app.view.height-100);
-      const t = this.mouseT = this.t - dy/this.z;
+    app.view.addEventListener('contextmenu', event => event.preventDefault());
+    app.view.addEventListener('mousemove', e => {
+      [this.mouseX, this.mouseY] = [e.offsetX, e.offsetY];
+      this.refreshMousePosition();
+      /*if(this.mouseOver) this.mouseOver.graphics.tint = 0xFFFFFF;
       if(e.offsetX < 400){
         let mouseCol = Math.floor(e.offsetX/400*this.linked.metadata.Difficulty.CircleSize);
         console.log(mouseCol, t);
@@ -64,16 +74,31 @@ height:100vh;`;
       }else{
 
       }
-      if(this.mouseOver) this.mouseOver.graphics.tint = 0x555555;
+      if(this.mouseOver) this.mouseOver.graphics.tint = 0x555555;*/
     });
-    app.view.addEventListener('click', e => {
-      console.log(e.offsetX, e.offsetY);
-      if(e.offsetX < 400){ // notes
+    app.view.addEventListener('pointerdown', e => { // fix eventlisteners
+      console.log("click!", e.offsetX, e.offsetY);
+      if(this.mouseOver){
 
-      }else if(e.offsetX < 400+50*5){ // sv columns
+      }else{
+        if(e.offsetX < this.bounds.noteRight){ // notes
 
+        }else if(e.offsetX < this.bounds.blockRight){ // sv columns
+          this.initiateMouseAction(Actions.PlaceSVBlock);
+        }
       }
-    });*/
+    });
+    app.view.addEventListener('pointerup', e => {
+      if(this.mouseOver){
+
+      }else{
+        if(e.offsetX < this.bounds.noteRight){ // notes
+
+        }else if(e.offsetX < this.bounds.blockRight){ // sv columns
+          this.resolveMouseAction();
+        }
+      }
+    });
     app.view.addEventListener('wheel', e => {
       if(e.deltaY === 0) return; // displacement
       let up = e.deltaY < 0;
@@ -116,15 +141,8 @@ height:100vh;`;
       return line;
     });
 
-    this.notes = linked.notes.map(note => {
-      const n = Rendered.from(note);
-      dynamic.addChild(n.graphics);
-      const n2 = Rendered.from(note);
-      note.projected = n2;
-      n2.setTimeScale(1); // TODO: uhh i'll sync this later
-      projected.addChild(n2.graphics);
-      return n;
-    }); // TODO: implement and use this.addNote instead
+    this.notes = [];
+    linked.notes.forEach(this.addNote.bind(this));
 
     this.blocks = [];
     linked.blocks.forEach(this.addBlock.bind(this));
@@ -215,6 +233,14 @@ height:100vh;`;
 
     // some tree structure seems appropriate for culling (esp since they dont move around much)
     if(this.renderedMinT === void 0 || (this.t < this.renderedMinT || this.t > this.renderedMaxT)) this.refreshCulling();
+    this.refreshMousePosition();
+  }
+  refreshMousePosition(){
+    const dy = this.mouseY - (this.app.view.height-100);
+    this.mouseT = this.t - dy/this.z;
+    this.refreshMouseAction();
+    if(this.mouseOver) this.mouseTAligned = this.mouseOver.t$;
+    else this.mouseTAligned = this.getNearestLine(Math.floor(this.mouseT));
   }
   refreshCulling(){ // return;
     const viewport = this.app.screen;
@@ -259,14 +285,33 @@ height:100vh;`;
     return newT;
   }
   addNote(note){
-
+    const n = Rendered.from(note);
+    this.dynamicStage.addChild(n.graphics);
+    const n2 = Rendered.from(note);
+    note.projected = n2;
+    n2.setTimeScale(1); // TODO: uhh i'll sync this later
+    this.projectedStage.addChild(n2.graphics);
+    this.notes.push(n);
+    return n;
   }
   addBlock(block){
     const b = Rendered.from(block, this);
     b.graphics.position.x = this.bounds.blockLeft + 50*block.x;
+    b.setTimeScale(this.z);
     this.dynamicStage.addChild(b.graphics);
     this.blocks.push(b);
     return b;
+  }
+  removeNote(note){
+    // TODO: implement
+  }
+  removeBlock(block){ // TODO: binary search? or use map<int, Block>
+    // call from RenderedObject since this only updates virtual objects and not the rendered ones
+    let i = this.blocks.indexOf(block);
+    if(i >= 0){
+      this.blocks.splice(i, 1);
+      this.linked.removeBlock(block.linked);
+    } else console.warn("remove block -- block not found", block);
   }
   refreshOutput(){
     let _start = performance.now();
@@ -299,6 +344,56 @@ height:100vh;`;
     // result.pivot.set(0, result.height);
     result.position.set(this.bounds.resultLeft, ~~(-start*this.z));
     result.scale.set(1, -this.z);
+  }
+  initiateMouseAction(action){
+    this.abortMouseAction();
+    switch(action){
+      case Actions.PlaceSVBlock: {
+        const preview = Rendered.from(new SvBlock());
+        const x = Math.floor((this.mouseX-this.bounds.blockLeft)/((this.bounds.blockRight-this.bounds.blockLeft)/5));
+        preview.graphics.position.x = this.bounds.blockLeft + 50*x;
+        preview.graphics.interactive = false;
+        this.dynamicStage.addChild(preview.graphics);
+        this.mouseAction = {
+          type: action,
+          x: x,
+          t: this.mouseTAligned,
+          preview: preview,
+        };
+        this.refreshMouseAction();
+        break;
+      }
+    }
+  }
+  refreshMouseAction(){
+    if(!this.mouseAction) return;
+    switch(this.mouseAction.type){
+      case Actions.PlaceSVBlock:
+        this.mouseAction.preview.linked.setTime(this.mouseAction.t);
+        this.mouseAction.preview.linked.setEndTime(this.mouseTAligned);
+        this.mouseAction.preview.setTimeScale(this.z);
+        console.log(this.mouseAction.t, this.mouseTAligned, this.mouseAction);
+        break;
+    }
+  }
+  resolveMouseAction(){ // process input
+    if(!this.mouseAction) return;
+    switch(this.mouseAction.type){
+      case Actions.PlaceSVBlock:
+        if(this.mouseAction.t !== this.mouseTAligned)
+          this.linked.addBlock(new SvBlock(SvBlock.Operation.ADD, this.mouseAction.x, Math.min(this.mouseAction.t, this.mouseTAligned), Math.abs(this.mouseTAligned - this.mouseAction.t)));
+        break;
+    }
+    this.abortMouseAction();
+  }
+  abortMouseAction(){ // cleanup previews
+    if(!this.mouseAction) return;
+    switch(this.mouseAction.type){
+      case Actions.PlaceSVBlock:
+        this.mouseAction.preview.destroy();
+        break;
+    }
+    this.mouseAction = null;
   }
 }
 
@@ -333,6 +428,7 @@ class Project {
     reader.readAsDataURL(audioFile);
   }
   // loads resources from jsZip object instead of filenames
+  // TODO: this should be able to be merged with loadResources
   async loadResourcesZip(jsZip) {
     const audioFile = jsZip.files[this.metadata.General.AudioFilename];
 
@@ -358,6 +454,14 @@ class Project {
       this.editor?.addBlock(block);
     }
     // TODO: X shifting if collisions
+  }
+  removeBlock(){
+    for(const block of arguments){
+      let i = this.blocks.indexOf(block); // bin search?
+      if(i >= 0){
+        this.blocks.splice(i, 1);
+      }
+    }
   }
   calculateSpeedOutput(){
     this.editor?.app.stop();

@@ -3,6 +3,7 @@
 import * as Notes from './Notes.mjs';
 import SvBlock from './SvBlock.mjs';
 import {OutlineFilter} from './OutlineFilter.mjs';
+import { MouseButtons } from './Constants.mjs';
 
 class RenderedObject {
   constructor(linked={}){
@@ -33,6 +34,9 @@ class RenderedObject {
       this.graphics.filters = [];
     }
     return this;
+  }
+  destroy(){
+    this.graphics.parent.removeChild(this.graphics);
   }
 }
 
@@ -172,14 +176,27 @@ class RenderedSvBlock extends RenderedObject {
     body.addChild(line);
     g.addChild(body, tx); //, this.graphicsDebugDisplay
     g.interactive = true;
-    g.on('pointerover', () => body.alpha = 1);
-    g.on('pointerout', () => body.alpha = 0.5);
+    g.on('pointerover', () => {
+      body.alpha = 1;
+      if(baseEditor && !baseEditor.mouseOver) baseEditor.mouseOver = this;
+    });
+    g.on('pointerout', () => {
+      body.alpha = 0.5;
+      if(baseEditor?.mouseOver == this) baseEditor.mouseOver = null;
+    });
     g.on('pointerdown', e => {
-      if(!this.linked.func.editor){
-        this.linked.func.openEditor(this, baseEditor);
-        this.linked.func.editor.setPosition(e.data.global.x, e.data.global.y);
-      }else{
-        this.linked.func.closeEditor();
+      console.log("[svblock] tap!", e.data.button, e.data.buttons);
+      switch(e.data.button){
+        case MouseButtons.LEFT:
+          if(!this.linked.func.editor){
+            this.linked.func.openEditor(this, baseEditor);
+            this.linked.func.editor.setPosition(e.data.global.x, e.data.global.y);
+          }else{
+            this.linked.func.closeEditor();
+          }
+          break;
+        case MouseButtons.RIGHT:
+          this.destroy(baseEditor);
       }
     });
   }
@@ -211,6 +228,11 @@ class RenderedSvBlock extends RenderedObject {
   setTimeScale(timeScale){
     this.graphics.position.y = -this.linked.t * timeScale;
     this.graphicsBody.scale.y = -this.linked.duration * timeScale;
+  }
+  destroy(baseEditor){
+    RenderedObject.prototype.destroy.call(this);
+    if(baseEditor?.mouseOver == this) baseEditor.mouseOver = null;
+    if(baseEditor) baseEditor.removeBlock(this);
   }
 }
 
