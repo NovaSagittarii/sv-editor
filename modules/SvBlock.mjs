@@ -34,11 +34,27 @@ class SvBlock {
     this.t = t;
     this.duration = duration;
   }
+  getStart(){
+    return this.t;
+  }
+  getEnd(){
+    return this.t + this.duration;
+  }
+  setStart(t){
+    this.t = t;
+  }
+  setEnd(t){
+    this.duration = t - this.t;
+  }
+  setDuration(t){
+    this.duration = t;
+  }
   getLabel(){
     return OperationNames[this.operation] + "\n" + this.func.getLabel();
   }
   integrate(a, b){ return this.func.integrate(a-this.t, b-this.t); }
   evaluate(t){ return this.func.evaluate((t-this.t) / this.duration); }
+  /*
   setPoint(t, x){
     this.func.setPoint(t, x);
   }
@@ -67,6 +83,7 @@ class SvBlock {
     this.duration = t;
     return remainder;
   }
+  */
   applyOnto(velocityArray/*, resolution*/){ // TODO : resolution for fast rendering??
     // consider binary index tree?
     let start = this.t, end = start + this.duration;
