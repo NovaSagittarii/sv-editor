@@ -1,4 +1,5 @@
 import { Note, LongNote } from './Notes.mjs';
+import { MouseButtons } from './Constants.mjs';
 import * as Rendered from './PIXIRendering.mjs';
 import SpriteRenderer from './PIXIRenderedSprites.mjs'
 import { SvBlock } from './SvBlock.mjs';
@@ -77,19 +78,20 @@ height:100vh;`;
       if(this.mouseOver) this.mouseOver.graphics.tint = 0x555555;*/
     });
     app.view.addEventListener('pointerdown', e => { // fix eventlisteners
-      console.log("click!", e.offsetX, e.offsetY);
+      console.log("pointerdown", e.offsetX, e.offsetY);
       if(this.mouseOver){
 
       }else{
         if(e.offsetX < this.bounds.noteRight){ // notes
 
         }else if(e.offsetX < this.bounds.blockRight){ // sv columns
-          this.initiateMouseAction(Actions.PlaceSVBlock);
+          if(e.button === MouseButtons.LEFT) this.initiateMouseAction(Actions.PlaceSVBlock);
         }
       }
     });
     app.view.addEventListener('pointerup', e => {
-      if(this.mouseOver){
+      console.log("pointerup", e.offsetX, e.offsetY, this.mouseAction)
+      if(this.mouseOver && !this.mouseAction){
 
       }else{
         if(e.offsetX < this.bounds.noteRight){ // notes
@@ -238,9 +240,8 @@ height:100vh;`;
   refreshMousePosition(){
     const dy = this.mouseY - (this.app.view.height-100);
     this.mouseT = this.t - dy/this.z;
+    this.mouseTAligned = this.getNearestLine(Math.floor(this.mouseT));
     this.refreshMouseAction();
-    if(this.mouseOver) this.mouseTAligned = this.mouseOver.t$;
-    else this.mouseTAligned = this.getNearestLine(Math.floor(this.mouseT));
   }
   refreshCulling(){ // return;
     const viewport = this.app.screen;
@@ -353,6 +354,7 @@ height:100vh;`;
         const x = Math.floor((this.mouseX-this.bounds.blockLeft)/((this.bounds.blockRight-this.bounds.blockLeft)/5));
         preview.graphics.position.x = this.bounds.blockLeft + 50*x;
         preview.graphics.interactive = false;
+        preview.graphicsBody.tint = 0xaaccee;
         this.dynamicStage.addChild(preview.graphics);
         this.mouseAction = {
           type: action,
@@ -369,10 +371,15 @@ height:100vh;`;
     if(!this.mouseAction) return;
     switch(this.mouseAction.type){
       case Actions.PlaceSVBlock:
-        this.mouseAction.preview.linked.setTime(this.mouseAction.t);
-        this.mouseAction.preview.linked.setEndTime(this.mouseTAligned);
+        if(this.mouseOver){
+          console.log(this.mouseOver.linked.x, this.mouseAction.x);
+          if(this.mouseOver.linked.x === this.mouseAction.x) this.mouseTAligned = this.mouseAction.t > this.mouseOver.t ? this.mouseOver.getEnd() : this.mouseOver.getStart(); // same column, so snap to closer to first
+          else this.mouseTAligned = this.mouseT > (this.mouseOver.getStart()+this.mouseOver.getEnd())/2 ? this.mouseOver.getEnd() : this.mouseOver.getStart(); // diff column so snap to nearer side
+        }
+        this.mouseAction.preview.linked.setStart(Math.min(this.mouseAction.t, this.mouseTAligned));
+        this.mouseAction.preview.linked.setEnd(Math.max(this.mouseAction.t, this.mouseTAligned));
         this.mouseAction.preview.setTimeScale(this.z);
-        console.log(this.mouseAction.t, this.mouseTAligned, this.mouseAction);
+        // console.log(this.mouseAction.t, this.mouseTAligned, this.mouseAction);
         break;
     }
   }

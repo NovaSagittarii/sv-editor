@@ -34,10 +34,16 @@ class SvBlock {
     this.t = t;
     this.duration = duration;
   }
-  setTime(t){
+  getStart(){
+    return this.t;
+  }
+  getEnd(){
+    return this.t + this.duration;
+  }
+  setStart(t){
     this.t = t;
   }
-  setEndTime(t){
+  setEnd(t){
     this.duration = t - this.t;
   }
   setDuration(t){

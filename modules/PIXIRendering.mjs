@@ -15,6 +15,12 @@ class RenderedObject {
     this.graphics = null;
     // this.z = 1;
   }
+  getStart(){
+    return this.linked.getStart();
+  }
+  getEnd(){
+    return this.linked.getEnd();
+  }
   setTimeScale(timeScale){
     // this.z = timeScale;
     return this.graphics.position.y = ~~(-this.t * timeScale);
@@ -175,16 +181,16 @@ class RenderedSvBlock extends RenderedObject {
     this.render();
     body.addChild(line);
     g.addChild(body, tx); //, this.graphicsDebugDisplay
-    g.interactive = true;
-    g.on('pointerover', () => {
+    body.interactive = true;
+    body.on('pointerover', () => {
       body.alpha = 1;
       if(baseEditor && !baseEditor.mouseOver) baseEditor.mouseOver = this;
     });
-    g.on('pointerout', () => {
+    body.on('pointerout', () => {
       body.alpha = 0.5;
       if(baseEditor?.mouseOver == this) baseEditor.mouseOver = null;
     });
-    g.on('pointerdown', e => {
+    body.on('pointerdown', e => {
       console.log("[svblock] tap!", e.data.button, e.data.buttons);
       switch(e.data.button){
         case MouseButtons.LEFT:
