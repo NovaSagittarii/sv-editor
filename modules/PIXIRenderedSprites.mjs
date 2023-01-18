@@ -22,6 +22,8 @@ class SpriteRenderer {
 
     g.clear();
     g.beginFill(0x00b87a);
+    g.drawRect(0, 0, 1, 1); // uhh something about dont get over trimmed
+    g.drawRect(70-2, 0, 1, 1); // welp might as well make it symmetrical
     g.drawRect(15, 0, 70, 1);
     g.endFill();
     this.LongNoteBody = app.renderer.generateTexture(g);

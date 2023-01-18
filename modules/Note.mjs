@@ -5,11 +5,17 @@ class Note {
     // this.hs = 0;
     // this.sample // TODO: these maybe?
   }
+  getX(){
+    return this.x;
+  }
   getStart(){
     return this.t;
   }
   getEnd(){
     return this.t;
+  }
+  setX(x){
+    this.x = x;
   }
   setStart(t){
     this.t = t;
