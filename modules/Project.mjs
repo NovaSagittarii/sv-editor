@@ -8,6 +8,7 @@ import { Cull } from '@pixi-essentials/cull';
 
 const Actions = Object.freeze({
   PlaceSVBlock: Symbol("place sv block"),
+  MoveSelection: Symbol("move selected items"),
 });
 
 // console.log(Rendered);
@@ -94,11 +95,10 @@ height:100vh;`;
       if(this.mouseOver && !this.mouseAction){
 
       }else{
-        if(e.offsetX < this.bounds.noteRight){ // notes
-
-        }else if(e.offsetX < this.bounds.blockRight){ // sv columns
-          this.resolveMouseAction();
-        }
+        // if(e.offsetX < this.bounds.noteRight){ // notes
+        // }else if(e.offsetX < this.bounds.blockRight){ // sv columns
+        // }
+        this.resolveMouseAction();
       }
     });
     app.view.addEventListener('wheel', e => {
@@ -251,11 +251,11 @@ height:100vh;`;
     this.renderedMaxT = this.t - (minY + (this.app.view.height-100))/this.z;
     this.notes.forEach(n => {
       const bounds = n.graphics.getBounds();
-      n.graphics.renderable = n.graphics.interactive = n.linked.projected.graphics.renderable = bounds.y+bounds.height>=minY && bounds.y-bounds.height <= maxY;
+      n.graphics.renderable = n.graphics.interactive = n.graphics.interactiveChildren = n.linked.projected.graphics.renderable = bounds.y+bounds.height>=minY && bounds.y-bounds.height <= maxY;
     })
     this.blocks.forEach(n => {
       const bounds = n.graphics.getBounds();
-      n.graphics.renderable = n.graphics.interactive = bounds.y+bounds.height>=minY && bounds.y-bounds.height <= maxY;
+      n.graphics.renderable = n.graphics.interactive = n.graphics.interactiveChildren = bounds.y+bounds.height>=minY && bounds.y-bounds.height <= maxY;
     })
     this.refreshResult();
   }
@@ -346,14 +346,14 @@ height:100vh;`;
     result.position.set(this.bounds.resultLeft, ~~(-start*this.z));
     result.scale.set(1, -this.z);
   }
-  initiateMouseAction(action){
+  initiateMouseAction(action, source=null){
     this.abortMouseAction();
     switch(action){
       case Actions.PlaceSVBlock: {
         const preview = Rendered.from(new SvBlock());
         const x = Math.floor((this.mouseX-this.bounds.blockLeft)/((this.bounds.blockRight-this.bounds.blockLeft)/5));
         preview.graphics.position.x = this.bounds.blockLeft + 50*x;
-        preview.graphics.interactive = false;
+        preview.graphics.interactive = preview.graphics.interactiveChildren = false;
         preview.graphicsBody.tint = 0xaaccee;
         this.dynamicStage.addChild(preview.graphics);
         this.mouseAction = {

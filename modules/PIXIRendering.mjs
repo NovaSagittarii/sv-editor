@@ -194,15 +194,18 @@ class RenderedSvBlock extends RenderedObject {
       console.log("[svblock] tap!", e.data.button, e.data.buttons);
       switch(e.data.button){
         case MouseButtons.LEFT:
+          baseEditor.initiateMouseAction(baseEditor.constructor.Actions.MoveSelection);
+          break;
+        case MouseButtons.MIDDLE:
+          this.destroy(baseEditor);
+          break;
+        case MouseButtons.RIGHT:
           if(!this.linked.func.editor){
             this.linked.func.openEditor(this, baseEditor);
             this.linked.func.editor.setPosition(e.data.global.x, e.data.global.y);
           }else{
             this.linked.func.closeEditor();
           }
-          break;
-        case MouseButtons.RIGHT:
-          this.destroy(baseEditor);
       }
     });
   }
