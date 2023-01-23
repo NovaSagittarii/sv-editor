@@ -34,6 +34,11 @@ class SvBlock {
     this.t = t;
     this.duration = duration;
   }
+  clone(){
+    const n = new SvBlock(this.operation, this.x, this.t, this.duration);
+    n.func = this.func;
+    return n; // maybe Object.assign ? mayb
+  }
   getStart(){
     return this.t;
   }

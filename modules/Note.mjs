@@ -17,6 +17,9 @@ class Note {
   setEnd(t){
     this.t = t;
   }
+  clone(){
+    return new Note(this.x, this.y);
+  }
 }
 
 export default Note;

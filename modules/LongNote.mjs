@@ -11,6 +11,9 @@ class LongNote extends Note {
   getEnd(){
     return this.t$;
   }
+  clone(){
+    return new LongNote(this.x, this.y, this.t$);
+  }
 }
 
 export default LongNote;
