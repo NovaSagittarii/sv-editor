@@ -17,6 +17,10 @@ class Note {
   setEnd(t){
     this.t = t;
   }
+  setTime(t, t$=0){
+    this.t = t;
+    // do we even need setStart/setEnd??
+  }
   clone(){
     return new Note(this.x, this.y);
   }

@@ -45,6 +45,9 @@ class SvBlock {
   getEnd(){
     return this.t + this.duration;
   }
+  getX(){
+    return this.x;
+  }
   setStart(t){
     this.t = t;
   }
@@ -53,6 +56,13 @@ class SvBlock {
   }
   setDuration(t){
     this.duration = t;
+  }
+  setTime(start, end){
+    this.t = start;
+    this.duration = end - start;
+  }
+  setX(x){
+    this.x = x;
   }
   getLabel(){
     return OperationNames[this.operation] + "\n" + this.func.getLabel();
