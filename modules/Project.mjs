@@ -8,7 +8,6 @@ import { Cull } from '@pixi-essentials/cull';
 
 const Actions = Object.freeze({
   PlaceSVBlock: Symbol("place sv block"),
-  MoveSelection: Symbol("move selected items"),
 });
 
 // console.log(Rendered);
@@ -98,10 +97,9 @@ height:100vh;`;
         if(e.offsetX < this.bounds.noteRight){ // notes
 
         }else if(e.offsetX < this.bounds.blockRight){ // sv columns
-          
+          this.resolveMouseAction();
         }
       }
-      this.resolveMouseAction();
     });
     app.view.addEventListener('wheel', e => {
       if(e.deltaY === 0) return; // displacement
@@ -253,11 +251,11 @@ height:100vh;`;
     this.renderedMaxT = this.t - (minY + (this.app.view.height-100))/this.z;
     this.notes.forEach(n => {
       const bounds = n.graphics.getBounds();
-      n.graphics.renderable = n.graphics.interactive = n.graphics.interactiveChildren = n.linked.projected.graphics.renderable = bounds.y+bounds.height>=minY && bounds.y-bounds.height <= maxY;
+      n.graphics.renderable = n.graphics.interactive = n.linked.projected.graphics.renderable = bounds.y+bounds.height>=minY && bounds.y-bounds.height <= maxY;
     })
     this.blocks.forEach(n => {
       const bounds = n.graphics.getBounds();
-      n.graphics.renderable = n.graphics.interactive = n.graphics.interactiveChildren = bounds.y+bounds.height>=minY && bounds.y-bounds.height <= maxY;
+      n.graphics.renderable = n.graphics.interactive = bounds.y+bounds.height>=minY && bounds.y-bounds.height <= maxY;
     })
     this.refreshResult();
   }
@@ -288,9 +286,9 @@ height:100vh;`;
     return newT;
   }
   addNote(note){
-    const n = Rendered.from(note, this);
+    const n = Rendered.from(note);
     this.dynamicStage.addChild(n.graphics);
-    const n2 = Rendered.from(note, this);
+    const n2 = Rendered.from(note);
     note.projected = n2;
     n2.setTimeScale(1); // TODO: uhh i'll sync this later
     this.projectedStage.addChild(n2.graphics);
@@ -299,6 +297,7 @@ height:100vh;`;
   }
   addBlock(block){
     const b = Rendered.from(block, this);
+    b.graphics.position.x = this.bounds.blockLeft + 50*block.x;
     b.setTimeScale(this.z);
     this.dynamicStage.addChild(b.graphics);
     this.blocks.push(b);
@@ -347,15 +346,14 @@ height:100vh;`;
     result.position.set(this.bounds.resultLeft, ~~(-start*this.z));
     result.scale.set(1, -this.z);
   }
-  initiateMouseAction(action, source=null){
+  initiateMouseAction(action){
     this.abortMouseAction();
     switch(action){
       case Actions.PlaceSVBlock: {
-        const preview = Rendered.from(new SvBlock(), this);
+        const preview = Rendered.from(new SvBlock());
         const x = Math.floor((this.mouseX-this.bounds.blockLeft)/((this.bounds.blockRight-this.bounds.blockLeft)/5));
-        // preview.graphics.position.x = this.bounds.blockLeft + 50*x;
-        preview.setX(x);
-        preview.graphics.interactive = preview.graphics.interactiveChildren = false;
+        preview.graphics.position.x = this.bounds.blockLeft + 50*x;
+        preview.graphics.interactive = false;
         preview.graphicsBody.tint = 0xaaccee;
         this.dynamicStage.addChild(preview.graphics);
         this.mouseAction = {
@@ -364,26 +362,6 @@ height:100vh;`;
           t: this.mouseTAligned,
           preview: preview,
         };
-        this.refreshMouseAction();
-        break;
-      }
-      case Actions.MoveSelection: {
-        // TODO : selection movement (currently is single)
-        if(!source) source = this.mouseOver;
-        const sources = [source];
-        this.mouseAction = {
-          type: action,
-          mouseX: this.mouseX,
-          mouseT: this.mouseTAligned,
-          sources: sources,
-          previews: sources.map(source => {
-            const preview = Rendered.from(source.linked, this);
-            preview.graphics.interactive = preview.graphics.interactiveChildren = false;
-            preview.graphicsBody.tint = 0xff0000;
-            this.dynamicStage.addChild(preview.graphics);
-            return preview; // {source, preview};
-          }),
-        }
         this.refreshMouseAction();
         break;
       }
@@ -398,23 +376,11 @@ height:100vh;`;
           if(this.mouseOver.linked.x === this.mouseAction.x) this.mouseTAligned = this.mouseAction.t > this.mouseOver.t ? this.mouseOver.getEnd() : this.mouseOver.getStart(); // same column, so snap to closer to first
           else this.mouseTAligned = this.mouseT > (this.mouseOver.getStart()+this.mouseOver.getEnd())/2 ? this.mouseOver.getEnd() : this.mouseOver.getStart(); // diff column so snap to nearer side
         }
-        this.mouseAction.preview.setTime(Math.min(this.mouseAction.t, this.mouseTAligned), Math.max(this.mouseAction.t, this.mouseTAligned));
+        this.mouseAction.preview.linked.setStart(Math.min(this.mouseAction.t, this.mouseTAligned));
+        this.mouseAction.preview.linked.setEnd(Math.max(this.mouseAction.t, this.mouseTAligned));
         this.mouseAction.preview.setTimeScale(this.z);
         // console.log(this.mouseAction.t, this.mouseTAligned, this.mouseAction);
         break;
-      case Actions.MoveSelection: {
-        const {dx, dt} = this.mouseAction;
-        this.mouseAction.dx = Math.round((this.mouseX - this.mouseAction.mouseX)/50);
-        this.mouseAction.dt = this.mouseTAligned - this.mouseAction.mouseT;
-        if(dx !== this.mouseAction.dx || dt !== this.mouseAction.dt){
-          for(const p of this.mouseAction.previews){
-            p.setX(p.linked.getX() + this.mouseAction.dx);
-            p.setTime(p.linked.getStart() + this.mouseAction.dt, p.linked.getEnd() + this.mouseAction.dt);
-            p.setTimeScale(this.z);
-          }
-        }
-        break;
-      }
     }
   }
   resolveMouseAction(){ // process input
@@ -424,19 +390,6 @@ height:100vh;`;
         if(this.mouseAction.t !== this.mouseTAligned)
           this.linked.addBlock(new SvBlock(SvBlock.Operation.ADD, this.mouseAction.x, Math.min(this.mouseAction.t, this.mouseTAligned), Math.abs(this.mouseTAligned - this.mouseAction.t)));
         break;
-      case Actions.MoveSelection:
-        for(const p of this.mouseAction.previews){
-          p.linked.setX(p.linked.getX() + this.mouseAction.dx);
-          p.linked.setStart(p.linked.getStart() + this.mouseAction.dt);
-          p.linked.setEnd(p.linked.getEnd() + this.mouseAction.dt);
-        }
-        for(const g of this.mouseAction.sources){
-          g.setX(g.linked.getX()); // TODO: this syncing seems a bit cursed... maybe i should just have a dummy object for the previews
-          g.setTime(g.linked.getStart(), g.linked.getEnd());
-          g.setTimeScale(this.z); // update position
-          console.log(g, g === this.blocks[0]);
-        }
-        break;
     }
     this.abortMouseAction();
   }
@@ -445,9 +398,6 @@ height:100vh;`;
     switch(this.mouseAction.type){
       case Actions.PlaceSVBlock:
         this.mouseAction.preview.destroy();
-        break;
-      case Actions.MoveSelection:
-        for(const p of this.mouseAction.previews) p.destroy();
         break;
     }
     this.mouseAction = null;

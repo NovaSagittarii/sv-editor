@@ -21,7 +21,7 @@ class RenderedObject {
   getEnd(){
     return this.linked.getEnd();
   }
-  setTimeScale(timeScale){  // used to setTimeScale and update position
+  setTimeScale(timeScale){
     // this.z = timeScale;
     return this.graphics.position.y = ~~(-this.t * timeScale);
   }
@@ -104,16 +104,11 @@ class RenderedNote extends RenderedObject {
       g.beginFill(0x0077e6);
       g.drawRect(0, 0, 100, 40);
     }
-    g.pivot.set(-editor.bounds.noteLeft, g.height); // nudge up
-    // TODO: maybe *dont* misuse pivot ?? use anchor and extra vars?? maybeee?
+    g.pivot.set(0, g.height); // nudge up
     g.position.set(this.x*100, -this.t);
-    this.setTimeScale();
   }
   setTime(t){ // method for live replay
     this.graphics.position.y = -(this.t = t);
-  }
-  setTimeScale(){
-    this.graphics.position.set(this.x*100, -this.t);
   }
 }
 
@@ -126,8 +121,8 @@ class RenderedLongNote extends RenderedObject {
     let head, tail, body;
     if(editor){
       head = new PIXI.Sprite(editor.sprites.LongNoteHead);
-      tail = this.graphicsTail = new PIXI.Sprite(editor.sprites.LongNoteTail);
-      body = this.graphicsBody = new PIXI.Sprite(editor.sprites.LongNoteBody);
+      tail = new PIXI.Sprite(editor.sprites.LongNoteTail);
+      body = new PIXI.Sprite(editor.sprites.LongNoteBody);
     }else{
       head = new PIXI.Graphics();
       head.beginFill(0x00e699);
@@ -144,7 +139,8 @@ class RenderedLongNote extends RenderedObject {
     body.scale.y = tail.position.y - head.height - tail.height;
 
     g.addChild(body, head, tail);
-    g.pivot.set(-editor.bounds.noteLeft, head.height); // nudge up so (0,0) is the visually the very bottom
+    g.pivot.set(0, head.height); // nudge up so (0,0) is the visually the very bottom
+    g.position.set(this.x*100, -this.t);
   }
   setTime(start, end){
     this.t = start;
@@ -155,18 +151,13 @@ class RenderedLongNote extends RenderedObject {
     this.graphics.position.y = ~~(-this.t * timeScale);
     this.graphicsTail.position.y = ~~(-(this.t$ - this.t) * timeScale);
     this.graphicsBody.scale.y = ~~(-(Math.abs(this.graphicsTail.position.y) - this.graphicsTail.height));
-    this.graphics.position.set(this.x*100, -this.t);
   }
 }
 
 class RenderedSvBlock extends RenderedObject {
   constructor(linked, baseEditor){
     super(linked);
-    let {x, t, duration} = linked;
-    Object.assign(this, {x, t, duration})
-
     const g = this.graphics = new PIXI.Container();
-    g.pivot.set(-baseEditor.bounds.blockLeft, 0);
     // g.filters = [new OutlineFilter(1, 0xd69600)]; // TODO: don't use a filter and just redraw the rect
     const body = this.graphicsBody = new PIXI.Graphics();
     body.beginFill(0xffba1a); // hsl(42, 100%, 55%)
@@ -203,21 +194,16 @@ class RenderedSvBlock extends RenderedObject {
       console.log("[svblock] tap!", e.data.button, e.data.buttons);
       switch(e.data.button){
         case MouseButtons.LEFT:
-          // select and or move
-          baseEditor.initiateMouseAction(baseEditor.constructor.Actions.MoveSelection);
-          break;
-        case MouseButtons.MIDDLE:
-          this.destroy(baseEditor); // TODO: implement select deletion and properties Delete
-          break;
-        case MouseButtons.RIGHT:
           if(!this.linked.func.editor){
             this.linked.func.openEditor(this, baseEditor);
             this.linked.func.editor.setPosition(e.data.global.x, e.data.global.y);
           }else{
             this.linked.func.closeEditor();
           }
+          break;
+        case MouseButtons.RIGHT:
+          this.destroy(baseEditor);
       }
-      console.log(e);
     });
   }
   render(){ // the thing shown on the rectangle for the svBlock
@@ -245,19 +231,9 @@ class RenderedSvBlock extends RenderedObject {
   static mapTToVerticalPosition(t){
     return ~~(-t/4);
   }
-  setX(x){
-    this.x = x;
-  }
-  setTime(start, end){
-    if(start !== undefined) this.t = start;
-    if(end !== undefined) this.duration = end-start;
-  }
   setTimeScale(timeScale){
-    // this.graphics.position.y = -this.linked.t * timeScale;
-    // this.graphicsBody.scale.y = -this.linked.duration * timeScale;
-    this.graphics.position.x = 50*this.x; // TODO: variable width scaling
-    this.graphics.position.y = -this.t * timeScale;
-    this.graphicsBody.scale.y = -this.duration * timeScale;
+    this.graphics.position.y = -this.linked.t * timeScale;
+    this.graphicsBody.scale.y = -this.linked.duration * timeScale;
   }
   destroy(baseEditor){
     RenderedObject.prototype.destroy.call(this);
