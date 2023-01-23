@@ -392,7 +392,7 @@ height:100vh;`;
       case Actions.PlaceSVBlock:
         if(this.mouseOver){
           console.log(this.mouseOver.linked.x, this.mouseAction.x);
-          if(this.mouseOver.linked.x === this.mouseAction.x) this.mouseTAligned = this.mouseAction.t > this.mouseOver.t ? this.mouseOver.getEnd() : this.mouseOver.getStart(); // same column, so snap to closer to first
+          if(this.mouseOver.linked.x === this.mouseAction.x) this.mouseTAligned = Math.max(this.mouseAction.t, this.mouseTAligned) >= this.mouseOver.getEnd() ? this.mouseOver.getEnd() : this.mouseOver.getStart(); // same column, so snap to closer to first
           else this.mouseTAligned = this.mouseT > (this.mouseOver.getStart()+this.mouseOver.getEnd())/2 ? this.mouseOver.getEnd() : this.mouseOver.getStart(); // diff column so snap to nearer side
         }
         this.mouseAction.preview.setTime(Math.min(this.mouseAction.t, this.mouseTAligned), Math.max(this.mouseAction.t, this.mouseTAligned));
