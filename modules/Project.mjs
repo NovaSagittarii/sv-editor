@@ -8,6 +8,7 @@ import { Cull } from '@pixi-essentials/cull';
 
 const Actions = Object.freeze({
   PlaceSVBlock: Symbol("place sv block"),
+  MoveSelection: Symbol("move selected items"),
 });
 
 // console.log(Rendered);
@@ -94,11 +95,10 @@ height:100vh;`;
       if(this.mouseOver && !this.mouseAction){
 
       }else{
-        if(e.offsetX < this.bounds.noteRight){ // notes
-
-        }else if(e.offsetX < this.bounds.blockRight){ // sv columns
-          this.resolveMouseAction();
-        }
+        // if(e.offsetX < this.bounds.noteRight){ // notes
+        // }else if(e.offsetX < this.bounds.blockRight){ // sv columns
+        // }
+        this.resolveMouseAction();
       }
     });
     app.view.addEventListener('wheel', e => {
@@ -251,11 +251,11 @@ height:100vh;`;
     this.renderedMaxT = this.t - (minY + (this.app.view.height-100))/this.z;
     this.notes.forEach(n => {
       const bounds = n.graphics.getBounds();
-      n.graphics.renderable = n.graphics.interactive = n.linked.projected.graphics.renderable = bounds.y+bounds.height>=minY && bounds.y-bounds.height <= maxY;
+      n.graphics.renderable = n.graphics.interactive = n.graphics.interactiveChildren = n.linked.projected.graphics.renderable = bounds.y+bounds.height>=minY && bounds.y-bounds.height <= maxY;
     })
     this.blocks.forEach(n => {
       const bounds = n.graphics.getBounds();
-      n.graphics.renderable = n.graphics.interactive = bounds.y+bounds.height>=minY && bounds.y-bounds.height <= maxY;
+      n.graphics.renderable = n.graphics.interactive = n.graphics.interactiveChildren = bounds.y+bounds.height>=minY && bounds.y-bounds.height <= maxY;
     })
     this.refreshResult();
   }
@@ -288,7 +288,7 @@ height:100vh;`;
   addNote(note){
     const n = Rendered.from(note);
     this.dynamicStage.addChild(n.graphics);
-    const n2 = Rendered.from(note);
+    const n2 = Rendered.from(note.clone());
     note.projected = n2;
     n2.setTimeScale(1); // TODO: uhh i'll sync this later
     this.projectedStage.addChild(n2.graphics);
@@ -297,7 +297,7 @@ height:100vh;`;
   }
   addBlock(block){
     const b = Rendered.from(block, this);
-    b.graphics.position.x = this.bounds.blockLeft + 50*block.x;
+    // b.graphics.position.x = this.bounds.blockLeft + 50*block.x;
     b.setTimeScale(this.z);
     this.dynamicStage.addChild(b.graphics);
     this.blocks.push(b);
@@ -322,7 +322,8 @@ height:100vh;`;
       this.displacement[i] = (this.displacement[i-1]||0) + Math.min(1e3, this.linked.speed[i]);
     }
     this.linked.notes.forEach(n => { // TODO: good question why its -1, probably some off by one error.. but fix that later
-      n.projected.setTime(this.displacement[n.t-1]||0, n.t$&&this.displacement[n.t$-1]||0);
+      const dx = 0; //n.getEnd() < this.t ? 1000 : 0;
+      n.projected.setTime((this.displacement[n.t-1]||0) + dx, (n.t$&&this.displacement[n.t$-1]||0) + dx);
       n.projected.setTimeScale(1);
     });
     console.log("= total refresh time", 0|(performance.now()-_start), "ms")
@@ -346,14 +347,15 @@ height:100vh;`;
     result.position.set(this.bounds.resultLeft, ~~(-start*this.z));
     result.scale.set(1, -this.z);
   }
-  initiateMouseAction(action){
+  initiateMouseAction(action, source=null){
     this.abortMouseAction();
     switch(action){
       case Actions.PlaceSVBlock: {
-        const preview = Rendered.from(new SvBlock());
+        const preview = Rendered.from(new SvBlock(), this);
         const x = Math.floor((this.mouseX-this.bounds.blockLeft)/((this.bounds.blockRight-this.bounds.blockLeft)/5));
-        preview.graphics.position.x = this.bounds.blockLeft + 50*x;
-        preview.graphics.interactive = false;
+        // preview.graphics.position.x = this.bounds.blockLeft + 50*x;
+        preview.setX(x);
+        preview.graphics.interactive = preview.graphics.interactiveChildren = false;
         preview.graphicsBody.tint = 0xaaccee;
         this.dynamicStage.addChild(preview.graphics);
         this.mouseAction = {
@@ -365,6 +367,24 @@ height:100vh;`;
         this.refreshMouseAction();
         break;
       }
+      case Actions.MoveSelection: {
+        const sources = [source || this.mouseOver];
+        this.mouseAction = {
+          type: action,
+          mouseX: this.mouseX,
+          mouseT: this.mouseTAligned,
+          sources: sources,
+          previews: sources.map(source => {
+            const preview = Rendered.from(source.linked.clone(), this);
+            preview.graphics.interactive = preview.graphics.interactiveChildren = false;
+            preview.graphicsBody.tint = 0xff0000;
+            this.dynamicStage.addChild(preview.graphics);
+            return preview;
+          }),
+        };
+        this.refreshMouseAction();
+        break;
+      }
     }
   }
   refreshMouseAction(){
@@ -372,14 +392,30 @@ height:100vh;`;
     switch(this.mouseAction.type){
       case Actions.PlaceSVBlock:
         if(this.mouseOver){
-          if(this.mouseOver.linked.x === this.mouseAction.x) this.mouseTAligned = this.mouseAction.t > this.mouseOver.t ? this.mouseOver.getEnd() : this.mouseOver.getStart(); // same column, so snap to closer to first
-          else this.mouseTAligned = this.mouseAction.t > (this.mouseOver.getStart()+this.mouseOver.getEnd())/2 ? this.mouseOver.getEnd() : this.mouseOver.getStart(); // diff column so snap to nearer side
+          console.log(this.mouseOver.linked.x, this.mouseAction.x);
+          // todo : fix behavior with the drag mouse over itself
+          if(this.mouseOver.linked.x === this.mouseAction.x) this.mouseTAligned = this.mouseTAligned > this.mouseOver.t ? this.mouseOver.getEnd() : this.mouseOver.getStart(); // same column, so snap to closer to first
+          else this.mouseTAligned = this.mouseT > (this.mouseOver.getStart()+this.mouseOver.getEnd())/2 ? this.mouseOver.getEnd() : this.mouseOver.getStart(); // diff column so snap to nearer side
         }
-        this.mouseAction.preview.linked.setStart(Math.min(this.mouseAction.t, this.mouseTAligned));
-        this.mouseAction.preview.linked.setEnd(Math.max(this.mouseAction.t, this.mouseTAligned));
+        this.mouseAction.preview.setTime(Math.min(this.mouseAction.t, this.mouseTAligned), Math.max(this.mouseAction.t, this.mouseTAligned));
         this.mouseAction.preview.setTimeScale(this.z);
-        console.log(this.mouseAction.t, this.mouseTAligned, this.mouseAction);
+        console.log(this.mouseAction.preview);
+        // console.log(this.mouseAction.t, this.mouseTAligned, this.mouseAction);
         break;
+      case Actions.MoveSelection: {
+        const {dx, dt} = this.mouseAction;
+        this.mouseAction.dx = Math.round((this.mouseX - this.mouseAction.mouseX)/50);
+        this.mouseAction.dt = this.mouseTAligned - this.mouseAction.mouseT;
+        if(dx !== this.mouseAction.dx || dt !== this.mouseAction.dt){
+          for(let i = 0; i < this.mouseAction.sources.length; i ++){
+            const n = this.mouseAction.sources[i];
+            this.mouseAction.previews[i].setX(n.getX() + this.mouseAction.dx);
+            this.mouseAction.previews[i].setTime(n.getStart() + this.mouseAction.dt, n.getEnd() + this.mouseAction.dt);
+            this.mouseAction.previews[i].setTimeScale(this.z);
+          }
+        }
+        break;
+      }
     }
   }
   resolveMouseAction(){ // process input
@@ -389,6 +425,17 @@ height:100vh;`;
         if(this.mouseAction.t !== this.mouseTAligned)
           this.linked.addBlock(new SvBlock(SvBlock.Operation.ADD, this.mouseAction.x, Math.min(this.mouseAction.t, this.mouseTAligned), Math.abs(this.mouseTAligned - this.mouseAction.t)));
         break;
+      case Actions.MoveSelection:
+        for(let i = 0; i < this.mouseAction.sources.length; i ++){
+          const n = this.mouseAction.previews[i];
+          this.mouseAction.sources[i].setX(n.getX());
+          this.mouseAction.sources[i].setTime(n.getStart(), n.getEnd());
+          this.mouseAction.sources[i].setTimeScale(this.z);
+        }
+        // for(const n of this.mouseAction.sources){
+        //   // update position
+        // }
+        console.log('dt', this.mouseAction.dt, 'dx', this.mouseAction.dx);
     }
     this.abortMouseAction();
   }
@@ -398,6 +445,8 @@ height:100vh;`;
       case Actions.PlaceSVBlock:
         this.mouseAction.preview.destroy();
         break;
+      case Actions.MoveSelection:
+        for(const p of this.mouseAction.previews) p.destroy();
     }
     this.mouseAction = null;
   }

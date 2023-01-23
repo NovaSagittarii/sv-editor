@@ -1,5 +1,7 @@
 import Note from './Note.mjs';
 
+// TODO: hmm having svblock.duration while notes use endtime (from osu file format) does not very good
+
 class LongNote extends Note {
   constructor(x=0, t=0, endTime=1000){
     super(x, t);
@@ -8,8 +10,15 @@ class LongNote extends Note {
   setEnd(t){
     this.t$ = t;
   }
+  setTime(start, end){
+    this.t = start;
+    this.t$ = end;
+  }
   getEnd(){
     return this.t$;
+  }
+  clone(){
+    return new LongNote(this.x, this.y, this.t$);
   }
 }
 

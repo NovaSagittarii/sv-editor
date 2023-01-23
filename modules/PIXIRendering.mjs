@@ -8,8 +8,6 @@ import { MouseButtons } from './Constants.mjs';
 class RenderedObject {
   constructor(linked={}){
     this.linked = linked; // TODO: disconnect RenderedObject from Object? (other way might make more sense)
-    const {t} = linked;
-    Object.assign(this, {t});
 
     this.selected = false;
     this.graphics = null;
@@ -23,7 +21,7 @@ class RenderedObject {
   }
   setTimeScale(timeScale){
     // this.z = timeScale;
-    return this.graphics.position.y = ~~(-this.t * timeScale);
+    return this.graphics.position.y = ~~(-this.getStart() * timeScale);
   }
   select(){
     this.selected = true;
@@ -66,8 +64,9 @@ class RenderedLine extends RenderedObject {
   static colors = [null, 0x000000, 0xf26250, 0xb74fa9, 0x37aedc, 0x686868, 0xf8d44f, 0xf8d44f, 0xf8d44f];
   constructor(){
     super();
-    this.linked = this;
+    this.linked = null;
     this.type = 1;
+    this.t = 0;
     const g = this.graphics = new PIXI.Graphics();
     g.beginFill(0x000000);
     g.drawRect(0, 0, 400, 1);
@@ -82,6 +81,10 @@ class RenderedLine extends RenderedObject {
     g.drawRect(0, 0, 400, 1);
     g.endFill();
   }
+  setTimeScale(timeScale){
+    // this.z = timeScale;
+    return this.graphics.position.y = ~~(-this.t * timeScale);
+  }
   setPosition(t, z){
     this.t = ~~t;
     return this.setTimeScale(z);
@@ -94,8 +97,6 @@ class RenderedLine extends RenderedObject {
 class RenderedNote extends RenderedObject {
   constructor(linked, editor){
     super(linked);
-    let {x, y, t} = linked;
-    Object.assign(this, {x, y, t})
     let g;
     if(editor){
       g = this.graphics = new PIXI.Sprite(editor.sprites.Note);
@@ -105,18 +106,17 @@ class RenderedNote extends RenderedObject {
       g.drawRect(0, 0, 100, 40);
     }
     g.pivot.set(0, g.height); // nudge up
-    g.position.set(this.x*100, -this.t);
+    g.position.set(this.linked.x*100, -this.linked.t);
   }
   setTime(t){ // method for live replay
-    this.graphics.position.y = -(this.t = t);
+    // this.graphics.position.y = -(this.t = t);
+    this.linked.setTime(t);
   }
 }
 
 class RenderedLongNote extends RenderedObject {
   constructor(linked, editor){
     super(linked);
-    let {x, y, t, t$} = linked;
-    Object.assign(this, {x, y, t, t$})
     const g = this.graphics = new PIXI.Container();
     let head, tail, body;
     if(editor){
@@ -135,21 +135,20 @@ class RenderedLongNote extends RenderedObject {
       body.drawRect(15, 0, 70, 1);
     }
 
-    tail.position.y = -(this.t$ - this.t);
-    body.scale.y = tail.position.y - head.height - tail.height;
+    // tail.position.y = -(this.t$ - this.t);
+    // body.scale.y = tail.position.y - head.height - tail.height;
 
     g.addChild(body, head, tail);
     g.pivot.set(0, head.height); // nudge up so (0,0) is the visually the very bottom
-    g.position.set(this.x*100, -this.t);
+    g.position.set(this.linked.x*100, -this.linked.t);
   }
   setTime(start, end){
-    this.t = start;
-    this.t$ = end;
+    this.linked.setTime(start, end);
   }
   setTimeScale(timeScale){
     // this.z = timeScale;
-    this.graphics.position.y = ~~(-this.t * timeScale);
-    this.graphicsTail.position.y = ~~(-(this.t$ - this.t) * timeScale);
+    this.graphics.position.y = ~~(-this.linked.t * timeScale);
+    this.graphicsTail.position.y = ~~(-(this.linked.t$ - this.linked.t) * timeScale);
     this.graphicsBody.scale.y = ~~(-(Math.abs(this.graphicsTail.position.y) - this.graphicsTail.height));
   }
 }
@@ -166,6 +165,9 @@ class RenderedSvBlock extends RenderedObject {
     body.beginFill(0xefaa0a);
     body.drawRect(25, 0, 25, 1);
     body.alpha = 0.5; // to check for overlap
+    if(baseEditor){
+      g.pivot.x = -baseEditor.bounds.blockLeft;
+    }
     /*this.graphicsDebugDisplay = new PIXI.Text("", {
       fontName: "Arial",
       fontSize: 12,
@@ -194,15 +196,18 @@ class RenderedSvBlock extends RenderedObject {
       console.log("[svblock] tap!", e.data.button, e.data.buttons);
       switch(e.data.button){
         case MouseButtons.LEFT:
+          baseEditor.initiateMouseAction(baseEditor.constructor.Actions.MoveSelection);
+          break;
+        case MouseButtons.MIDDLE:
+          this.destroy(baseEditor);
+          break;
+        case MouseButtons.RIGHT:
           if(!this.linked.func.editor){
             this.linked.func.openEditor(this, baseEditor);
             this.linked.func.editor.setPosition(e.data.global.x, e.data.global.y);
           }else{
             this.linked.func.closeEditor();
           }
-          break;
-        case MouseButtons.RIGHT:
-          this.destroy(baseEditor);
       }
     });
   }
@@ -231,9 +236,19 @@ class RenderedSvBlock extends RenderedObject {
   static mapTToVerticalPosition(t){
     return ~~(-t/4);
   }
+  setTime(start, end){
+    this.linked.setTime(start, end);
+  }
   setTimeScale(timeScale){
+    this.graphics.position.x = this.linked.x * 50; // TODO : dont hardcode width
     this.graphics.position.y = -this.linked.t * timeScale;
     this.graphicsBody.scale.y = -this.linked.duration * timeScale;
+  }
+  getX(){
+    return this.linked.getX();
+  }
+  setX(x){
+    this.linked.setX(x);
   }
   destroy(baseEditor){
     RenderedObject.prototype.destroy.call(this);

@@ -34,11 +34,19 @@ class SvBlock {
     this.t = t;
     this.duration = duration;
   }
+  clone(){
+    const n = new SvBlock(this.operation, this.x, this.t, this.duration);
+    n.func = this.func;
+    return n; // maybe Object.assign ? mayb
+  }
   getStart(){
     return this.t;
   }
   getEnd(){
     return this.t + this.duration;
+  }
+  getX(){
+    return this.x;
   }
   setStart(t){
     this.t = t;
@@ -48,6 +56,13 @@ class SvBlock {
   }
   setDuration(t){
     this.duration = t;
+  }
+  setTime(start, end){
+    this.t = start;
+    this.duration = end - start;
+  }
+  setX(x){
+    this.x = x;
   }
   getLabel(){
     return OperationNames[this.operation] + "\n" + this.func.getLabel();

@@ -68,6 +68,8 @@ class PFuncEditor {
     this.updateSliders(sliders);
 
     this.htmlElement.append(buttonMove, buttonClose, config, sliders);
+    this.htmlElement.addEventListener('contextmenu', event => event.preventDefault());
+    
     document.body.append(this.htmlElement);
   }
   destroy(){
