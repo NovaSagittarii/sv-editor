@@ -22,7 +22,7 @@ class Note {
     // do we even need setStart/setEnd??
   }
   clone(){
-    return new Note(this.x, this.y);
+    return new Note(this.x, this.t);
   }
 }
 
