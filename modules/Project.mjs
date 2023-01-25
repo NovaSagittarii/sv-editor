@@ -475,8 +475,14 @@ class Project {
   }
   setResource(k, v){
     this.resources[k] = v; // oop notation would be nice, it is a lil troll tho i think
+  } // Mitsukiyo - Blue Archive OST Volume I (NovaSagittarii) [Future Bossa  cindsa's Another]
+  getName(){
+    let osuMetadata = this.metadata.Metadata;
+    return (osuMetadata && `${osuMetadata.ArtistUnicode} - ${osuMetadata.TitleUnicode} (${osuMetadata.Creator}) [${osuMetadata.Version}]`.replace(/[^A-Za-z0-9\-\[\]\(\)]/g, ' ')) 
+        || ("newProject" + new Date().toISOString());
   }
   loadResources(files){
+    const _start = performance.now();
     const audioFile = files.filter(x => x.name === this.resources.audio)[0];
     if(!audioFile) throw "audio file not found!";
     const reader = new FileReader();
@@ -485,7 +491,7 @@ class Project {
         src: reader.result,
         format: audioFile.name.split('.').pop().toLowerCase() // always give file extension: this is optional but helps
       });
-      this.songAudio.once('load', () => console.log("Audio is loaded"));
+      this.songAudio.once('load', () => console.log(0|(performance.now()-_start), "ms to load audio"));
     });
     reader.readAsDataURL(audioFile);
   }

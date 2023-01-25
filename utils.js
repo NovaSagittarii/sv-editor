@@ -9,10 +9,10 @@ function download(data, fileName, fileOptions) {
   URL.revokeObjectURL(_file);
 }
 
-function exportProject(){
-    x = project.codec.encode(project)
+function exportProject(codec='osuCodec'){
+    x = codecs[codec].encode(project)
     console.log(x.length, "str length");
-    download([x], "a.osu", {type: 'text/plain'});
+    download([x], project.getName() + "." + codecs[codec].EXTENSION, {type: 'text/plain'});
 }
 
 function normalizeProjectExport(){
@@ -24,15 +24,15 @@ function normalizeProjectExport(){
   // }, 500);
 }
 
-function exportProjectCopy(){
-  project.blocks.splice(1)
-  exportProject();
-}
+// function exportProjectCopy(){
+//   project.blocks.splice(1)
+//   exportProject();
+// }
 
-function testSet(){
-  project.blocks[0].applyOnto(project.speed=[...new Array(project.notes[project.notes.length-1].getEnd())].map(() => 1))
-  return getCurrentOutputSpeed();
-}
+// function testSet(){
+//   project.blocks[0].applyOnto(project.speed=[...new Array(project.notes[project.notes.length-1].getEnd())].map(() => 1))
+//   return getCurrentOutputSpeed();
+// }
 
 function getCurrentOutputSpeed(){
   return project.speed[~~project.editor.t]
