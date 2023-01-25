@@ -9,7 +9,6 @@ import * as osu from './modules/codecs/osuCodec.mjs';
   chars: [['a', 'z'], ['A', 'Z'], "!@#$%^&*()~{}[],.<>/ "],
 });*/
 
-
 let selectFile;
 function parseFiles(files){
   console.log(files);
@@ -53,6 +52,16 @@ function parseFiles(files){
   document.getElementById("loader").append(selectFile);
 }
 
+async function unzip(zipfile){
+  // see https://stuk.github.io/jszip/documentation/examples/read-local-file-api.html
+  // convert to file to treat as if it were a folder upload :: https://stackoverflow.com/a/42589217
+  const jsZip = await Promise.all((await JSZip.loadAsync(zipfile))
+    .filter(()=>true)
+    .map(async n => new File([await n.async('blob')], n.name))
+  );
+  return jsZip;
+}
+
 // folder input
 (() => {
   let inputFile = document.getElementById('folder');
@@ -71,17 +80,10 @@ function parseFiles(files){
   inputFile.addEventListener('change', async (event) => {
     // console.log(event.srcElement.files);
     const zipfile = event.target.files[0];
-    if (!zipfile) {
-      return;
-    }
+    if (!zipfile) return;
     // if we successfully loaded the zip, use jszip to unpack files
-    // see https://stuk.github.io/jszip/documentation/examples/read-local-file-api.html
-    // convert to file to treat as if it were a folder upload :: https://stackoverflow.com/a/42589217
-    const jsZip = await Promise.all((await JSZip.loadAsync(zipfile))
-      .filter(()=>true)
-      .map(async n => new File([await n.async('blob')], n.name))
-    );
-    parseFiles(jsZip);
+    
+    parseFiles(await unzip(zipfile));
   });
 })();
 
