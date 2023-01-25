@@ -1,5 +1,5 @@
 import { Note, LongNote } from './Notes.mjs';
-import { MouseButtons } from './Constants.mjs';
+import { MouseButtons, Keys } from './Constants.mjs';
 import * as Rendered from './PIXIRendering.mjs';
 import SpriteRenderer from './PIXIRenderedSprites.mjs'
 import { SvBlock } from './SvBlock.mjs';
@@ -105,16 +105,9 @@ height:100vh;`;
       if(e.deltaY === 0) return; // displacement
       let up = e.deltaY < 0;
       if(e.ctrlKey){
-        this.setTimeScale(this.z = up ? (this.z*2) : (this.z/2));
+        this.setTimeScale(up ? (this.z*2) : (this.z/2));
       }else{
-        // if lines arent rendered completely cuz its zoomed out too much just use 1 second default (no ternary cuz thats unreadable)
-        if(this.lines[this.lines.length-1].t < this.t){
-          this.setTime(Math.max(0, this.t + (up ? -1 : 1)*1000*(e.shiftKey ? 10 : 1)));
-        }else{
-          if(e.altKey){
-            this.setTime(this.t + (up ? -1 : 1));
-          } else this.setTime(Math.max(0, this[(!up?"next":"prev")+(!e.shiftKey?"Snap":"Measure")]));
-        }
+        this.updateTime(up, e.shiftKey, e.altKey);
       }
       e.preventDefault();
     });
@@ -133,6 +126,21 @@ height:100vh;`;
             this.songAudio.play();
             app.ticker.add(this.syncTimeToAudio, this);
           }
+          break;
+        // bind keys LEFT/RIGHT for moving through time
+        case Keys.LEFT:
+        case Keys.RIGHT:
+          this.updateTime(e.keyCode === Keys.LEFT, e.shiftKey, e.altKey);
+          break;
+        case Keys.UP:
+        case Keys.DOWN:
+          // UP/DOWN (base) for changing subdivision
+          // UP/DOWN * Ctrl for changing zoom (alt :: +/- 1) (default :: *// 2)
+          if(e.ctrlKey) this.setTimeScale(this.z * ((2)**(e.keyCode === Keys.UP ? 1 : -1)));
+          else this.updateSubdivisions(Math.round(e.altKey
+            ? this.subdivisions + (     (e.keyCode === Keys.UP ? 1 : -1))
+            : this.subdivisions * (2 ** (e.keyCode === Keys.UP ? 1 : -1))
+          ));
           break;
       }
     });
@@ -183,6 +191,40 @@ height:100vh;`;
     this.dynamicStage.position.y = this.t*this.z;
     this.projectedStage.position.y = this.displacement[~~this.t];
 
+    this.updateSubdivisions();
+
+    // this.blocks.forEach(b => {
+    //   const block = b.linked;
+    //   const svBlockEditor = block.func.editor;
+    //   if(svBlockEditor && this.t >= block.t && this.t <= block.t+block.duration){ // filter condition
+    //     svBlockEditor.setTimeScale(this.z);
+    //     svBlockEditor.setTime(this.t-block.t);
+    //   }
+    //   /* b.graphicsDebugDisplay.text = block.func.evaluate(this.t - block.t).toFixed(3) + 'x';
+    //   b.graphicsDebugDisplay.position.y = -this.dynamicStage.position.y - b.graphics.position.y;
+    //   b.graphicsDebugDisplay.anchor.set(0, 0); */
+    // });
+
+    // some tree structure seems appropriate for culling (esp since they dont move around much)
+    if(this.renderedMinT === void 0 || (this.t < this.renderedMinT || this.t > this.renderedMaxT)) this.refreshCulling();
+    this.refreshMousePosition();
+  }
+  updateTime(backwards, shift, alt){
+    // if lines arent rendered completely cuz its zoomed out too much just use 1 second default (no ternary cuz thats unreadable)
+    if(this.lines[this.lines.length-1].t < this.t){
+      this.setTime(Math.max(0, this.t + (backwards ? -1 : 1)*1000*(shift ? 10 : 1)));
+    }else{
+      // alt       : small modifier (1 ms)
+      // none      : default (subdivision)
+      // shift     : big modifier (measures)
+      // alt+shift : really big modifier (sections)
+      if(alt && shift) return; // TODO: setup bookmarks
+      else if(alt) this.setTime(this.t + (backwards ? -1 : 1));
+      else this.setTime(Math.max(0, this[(!backwards?"next":"prev")+(!shift?"Snap":"Measure")]));
+    }
+  }
+  updateSubdivisions(subdivisions){
+    if(subdivisions !== void 0) this.subdivisions = subdivisions;
     let i = 0;
     let currentTimingPoint = this.linked.timingPoints[0]; // TODO: use something O(1) instead of O(n)
     while(i < this.linked.timingPoints.length){
@@ -220,22 +262,6 @@ height:100vh;`;
         if(time > this.t+1.5 && !this.nextMeasure) this.nextMeasure = truncatedTime;
       } // to get all measure snaps: this.lines.map(l => l.t)
     });
-
-    // this.blocks.forEach(b => {
-    //   const block = b.linked;
-    //   const svBlockEditor = block.func.editor;
-    //   if(svBlockEditor && this.t >= block.t && this.t <= block.t+block.duration){ // filter condition
-    //     svBlockEditor.setTimeScale(this.z);
-    //     svBlockEditor.setTime(this.t-block.t);
-    //   }
-    //   /* b.graphicsDebugDisplay.text = block.func.evaluate(this.t - block.t).toFixed(3) + 'x';
-    //   b.graphicsDebugDisplay.position.y = -this.dynamicStage.position.y - b.graphics.position.y;
-    //   b.graphicsDebugDisplay.anchor.set(0, 0); */
-    // });
-
-    // some tree structure seems appropriate for culling (esp since they dont move around much)
-    if(this.renderedMinT === void 0 || (this.t < this.renderedMinT || this.t > this.renderedMaxT)) this.refreshCulling();
-    this.refreshMousePosition();
   }
   refreshMousePosition(){
     const dy = this.mouseY - (this.app.view.height-100);
@@ -263,8 +289,8 @@ height:100vh;`;
     // y = zt
     /*this.t += this.t * (z-this.z) / z;
     this.app.stage.position.y = this.t*z;*/
-    this.setTime(this.t + this.t * (z-this.z) / z);
     this.z = z;
+    this.setTime(this.t + this.t * (z-this.z) / z);
     this.notes.forEach(n => n.setTimeScale(z));
     this.blocks.forEach(block => block.setTimeScale(z));
     this.refreshCulling();
