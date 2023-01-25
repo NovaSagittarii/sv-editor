@@ -1,5 +1,3 @@
-"use strict";
-
 const MouseButtons = {
   LEFT: 0,
   MIDDLE: 1,

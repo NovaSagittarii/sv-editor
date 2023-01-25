@@ -1,5 +1,3 @@
-"use strict";
-
 import * as Notes from './Notes.mjs';
 import SvBlock from './SvBlock.mjs';
 import {OutlineFilter} from './OutlineFilter.mjs';

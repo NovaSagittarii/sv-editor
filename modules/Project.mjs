@@ -464,6 +464,7 @@ class Project {
     this.blocks = [];
     this.editor = null;
     this.songAudio = null;
+    this.speed = []; // used for velocity calculations
   }
   openEditor(){
     if(this.editor) throw 'project editor already opened';
