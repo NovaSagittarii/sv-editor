@@ -111,6 +111,9 @@ function decode(text){
       }
     }
   }
+
+  project.setResource(Project.RESOURCE_AUDIO, project.metadata.General.AudioFilename);
+
   // post read processing (maybe move tp processing here if things break)
   sortByTime(project.notes);
   sortByTime(project.timingPoints);

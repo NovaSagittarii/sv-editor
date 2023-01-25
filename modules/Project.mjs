@@ -451,8 +451,14 @@ height:100vh;`;
 }
 
 class Project {
+  static RESOURCE_BACKGROUND = "background";
+  static RESOURCE_AUDIO = "audio";
   constructor(){
     this.metadata = {};
+    this.resources = {
+      background: null,
+      audio: null,
+    };
     this.notes = [];
     this.timingPoints = [];
     this.blocks = [];
@@ -467,8 +473,11 @@ class Project {
     this.editor?.destroy();
     this.editor = null;
   }
+  setResource(k, v){
+    this.resources[k] = v; // oop notation would be nice, it is a lil troll tho i think
+  }
   loadResources(files){
-    const audioFile = files.filter(x => x.name === this.metadata.General.AudioFilename)[0];
+    const audioFile = files.filter(x => x.name === this.resources.audio)[0];
     if(!audioFile) throw "audio file not found!";
     const reader = new FileReader();
     reader.addEventListener('load', () => {
@@ -479,27 +488,6 @@ class Project {
       this.songAudio.once('load', () => console.log("Audio is loaded"));
     });
     reader.readAsDataURL(audioFile);
-  }
-  // loads resources from jsZip object instead of filenames
-  // TODO: this should be able to be merged with loadResources
-  async loadResourcesZip(jsZip) {
-    const audioFile = jsZip.files[this.metadata.General.AudioFilename];
-
-    if (!audioFile) throw "audio file not found!";
-    // blob, we need to convert to base64url
-    const audioData = await audioFile.async("blob");
-
-    const reader = new FileReader();
-
-    reader.addEventListener("load", () => {
-      this.songAudio = new Howl({
-        src: reader.result,
-        format: audioFile.name.split(".").pop().toLowerCase(), // always give file extension: this is optional but helps
-      });
-      this.songAudio.once("load", () => console.log("Audio is loaded"));
-    });
-
-    reader.readAsDataURL(audioData);
   }
   addBlock(){
     for(const block of arguments){
