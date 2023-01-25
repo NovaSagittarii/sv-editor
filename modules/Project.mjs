@@ -79,7 +79,7 @@ height:100vh;`;
       if(this.mouseOver) this.mouseOver.graphics.tint = 0x555555;*/
     });
     app.view.addEventListener('pointerdown', e => { // fix eventlisteners
-      console.log("pointerdown", e.offsetX, e.offsetY);
+      // console.log("pointerdown", e.offsetX, e.offsetY);
       if(this.mouseOver){
 
       }else{
@@ -91,7 +91,7 @@ height:100vh;`;
       }
     });
     app.view.addEventListener('pointerup', e => {
-      console.log("pointerup", e.offsetX, e.offsetY, this.mouseAction)
+      // console.log("pointerup", e.offsetX, e.offsetY, this.mouseAction)
       if(this.mouseOver && !this.mouseAction){
 
       }else{
@@ -322,8 +322,7 @@ height:100vh;`;
       this.displacement[i] = (this.displacement[i-1]||0) + Math.min(1e3, this.linked.speed[i]);
     }
     this.linked.notes.forEach(n => { // TODO: good question why its -1, probably some off by one error.. but fix that later
-      const dx = 0; //n.getEnd() < this.t ? 1000 : 0;
-      n.projected.setTime((this.displacement[n.t-1]||0) + dx, (n.t$&&this.displacement[n.t$-1]||0) + dx);
+      n.projected.setTime(this.displacement[n.t-1]||0, n.t$&&this.displacement[n.t$-1]||0);
       n.projected.setTimeScale(1);
     });
     console.log("= total refresh time", 0|(performance.now()-_start), "ms")
@@ -392,14 +391,13 @@ height:100vh;`;
     switch(this.mouseAction.type){
       case Actions.PlaceSVBlock:
         if(this.mouseOver){
-          console.log(this.mouseOver.linked.x, this.mouseAction.x);
-          // todo : fix behavior with the drag mouse over itself
-          if(this.mouseOver.linked.x === this.mouseAction.x) this.mouseTAligned = this.mouseTAligned > this.mouseOver.t ? this.mouseOver.getEnd() : this.mouseOver.getStart(); // same column, so snap to closer to first
+          // console.log(this.mouseOver.linked.x, this.mouseAction.x);
+          if(this.mouseOver.linked.x === this.mouseAction.x) this.mouseTAligned = Math.max(this.mouseAction.t, this.mouseTAligned) >= this.mouseOver.getEnd() ? this.mouseOver.getEnd() : this.mouseOver.getStart(); // same column, so snap to closer to first
           else this.mouseTAligned = this.mouseT > (this.mouseOver.getStart()+this.mouseOver.getEnd())/2 ? this.mouseOver.getEnd() : this.mouseOver.getStart(); // diff column so snap to nearer side
         }
         this.mouseAction.preview.setTime(Math.min(this.mouseAction.t, this.mouseTAligned), Math.max(this.mouseAction.t, this.mouseTAligned));
         this.mouseAction.preview.setTimeScale(this.z);
-        console.log(this.mouseAction.preview);
+        // console.log(this.mouseAction.preview);
         // console.log(this.mouseAction.t, this.mouseTAligned, this.mouseAction);
         break;
       case Actions.MoveSelection: {
@@ -435,7 +433,7 @@ height:100vh;`;
         // for(const n of this.mouseAction.sources){
         //   // update position
         // }
-        console.log('dt', this.mouseAction.dt, 'dx', this.mouseAction.dx);
+        // console.log('dt', this.mouseAction.dt, 'dx', this.mouseAction.dx);
     }
     this.abortMouseAction();
   }
