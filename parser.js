@@ -9,6 +9,9 @@ import * as osu from './modules/codecs/osuCodec.mjs';
   chars: [['a', 'z'], ['A', 'Z'], "!@#$%^&*()~{}[],.<>/ "],
 });*/
 
+// example file
+fetch("./assets/Smigonaut_-_Shower_Beer.zip").then(x => x.blob()).then(unzip).then(parseFiles);
+
 let selectFile;
 function parseFiles(files){
   console.log(files);
