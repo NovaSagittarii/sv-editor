@@ -276,8 +276,8 @@ height:100vh;`;
       const {x, width} = this.mouseOver.graphicsBody.getBounds();
       if(this.mouseOver.linked.getEnd() - this.mouseT < 50 && this.mouseX >= x && this.mouseX <= x+width/3){
         this.mouseOverAttachment.opacity = 1;
-        console.log("scale ready");
-      }
+        //console.log("scale ready");
+      }else this.mouseOverAttachment.opacity = 0;
     }else this.mouseOverAttachment.opacity = 0;
 
     this.refreshMouseAction();
@@ -389,7 +389,7 @@ height:100vh;`;
     if(this.mouseOver !== renderedObject){
       this.mouseOver = null;
       if(renderedObject){
-        console.log("NEW ELEMENT", renderedObject.linked.getStart(), renderedObject.linked.getEnd());
+        // console.log("NEW ELEMENT", renderedObject.linked.getStart(), renderedObject.linked.getEnd());
         this.mouseOver = renderedObject;
       }
     }
