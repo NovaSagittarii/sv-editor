@@ -195,8 +195,8 @@ class RenderedSvBlock extends RenderedObject {
       console.log("[svblock] tap!", e.data.button, e.data.buttons);
       switch(e.data.button){
         case MouseButtons.LEFT:
-          baseEditor.initiateMouseAction(baseEditor.constructor.Actions.MoveSelection);
-          console.log(linked.getEnd(), baseEditor.mouseT);
+          if(baseEditor.mouseOverAttachment.opacity === 1) baseEditor.initiateMouseAction(baseEditor.constructor.Actions.Scale);
+          else baseEditor.initiateMouseAction(baseEditor.constructor.Actions.MoveSelection);
           break;
         case MouseButtons.MIDDLE:
           this.destroy(baseEditor);

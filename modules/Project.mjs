@@ -9,6 +9,8 @@ import { Cull } from '@pixi-essentials/cull';
 const Actions = Object.freeze({
   PlaceSVBlock: Symbol("place sv block"),
   MoveSelection: Symbol("move selected items"),
+  Scale: Symbol("scale selected item"),
+  ScaleSelection: Symbol("scale selected items"),
 });
 
 // console.log(Rendered);
@@ -50,6 +52,7 @@ height:100vh;`;
     this.t = 0;
     this.mouseX = this.mouseY = this.mouseT = 0;
     this.mouseOver = null;
+    this.mouseOverAttachment = {}; // TODO: have something exist
     this.mouseAction = null;
     this.prevSnap = 0; // if we're gonna be rendering measurelines might as well use them :D
     this.nextSnap = 0;
@@ -267,6 +270,16 @@ height:100vh;`;
     const dy = this.mouseY - (this.app.view.height-100);
     this.mouseT = this.t - dy/this.z;
     this.mouseTAligned = this.getNearestLine(Math.floor(this.mouseT));
+
+
+    if(this.mouseOver){
+      const {x, width} = this.mouseOver.graphicsBody.getBounds();
+      if(this.mouseOver.linked.getEnd() - this.mouseT < 50 && this.mouseX >= x && this.mouseX <= x+width/3){
+        this.mouseOverAttachment.opacity = 1;
+        console.log("scale ready");
+      }
+    }else this.mouseOverAttachment.opacity = 0;
+
     this.refreshMouseAction();
   }
   refreshCulling(){ // return;
@@ -373,10 +386,12 @@ height:100vh;`;
     result.scale.set(1, -this.z);
   }
   updateMouseOver(renderedObject){
-    this.mouseOver = null;
-    if(renderedObject){
-
-      this.mouseOver = renderedObject;
+    if(this.mouseOver !== renderedObject){
+      this.mouseOver = null;
+      if(renderedObject){
+        console.log("NEW ELEMENT", renderedObject.linked.getStart(), renderedObject.linked.getEnd());
+        this.mouseOver = renderedObject;
+      }
     }
   }
   initiateMouseAction(action, source=null){
@@ -399,17 +414,20 @@ height:100vh;`;
         this.refreshMouseAction();
         break;
       }
+      case Actions.Scale:
+      case Actions.ScaleSelection:
       case Actions.MoveSelection: {
         const sources = [source || this.mouseOver];
         this.mouseAction = {
           type: action,
           mouseX: this.mouseX,
           mouseT: this.mouseTAligned,
+          mouseT0: Math.min(...sources.map(x => x.linked.getStart())), // only used for scaling
           sources: sources,
           previews: sources.map(source => {
             const preview = Rendered.from(source.linked.clone(), this);
             preview.graphics.interactive = preview.graphics.interactiveChildren = false;
-            preview.graphicsBody.tint = 0xff0000;
+            preview.graphicsBody.tint = action===Actions.MoveSelection ? 0xff0000 : 0x00ff00;
             this.dynamicStage.addChild(preview.graphics);
             return preview;
           }),
@@ -447,6 +465,21 @@ height:100vh;`;
         }
         break;
       }
+      case Actions.Scale:
+      case Actions.ScaleSelection: {
+        const {k} = this.mouseAction;
+        const t0 = this.mouseAction.mouseT0;
+        this.mouseAction.k = (this.mouseTAligned - t0) / (this.mouseAction.mouseT - t0);
+        if(k !== this.mouseAction.k){
+          const {k} = this.mouseAction;
+          for(let i = 0; i < this.mouseAction.sources.length; i ++){
+            const s = this.mouseAction.sources[i];
+            const p = this.mouseAction.previews[i];
+            p.setTime((s.getStart()-t0)*k + t0, (s.getEnd()-t0)*k + t0);
+            p.setTimeScale(this.z);
+          }
+        }
+      }
     }
   }
   resolveMouseAction(){ // process input
@@ -457,6 +490,8 @@ height:100vh;`;
           this.linked.addBlock(new SvBlock(SvBlock.Operation.ADD, this.mouseAction.x, Math.min(this.mouseAction.t, this.mouseTAligned), Math.abs(this.mouseTAligned - this.mouseAction.t)));
         break;
       case Actions.MoveSelection:
+      case Actions.Scale:
+      case Actions.ScaleSelection:
         for(let i = 0; i < this.mouseAction.sources.length; i ++){
           const n = this.mouseAction.previews[i];
           this.mouseAction.sources[i].setX(n.getX());
@@ -477,6 +512,8 @@ height:100vh;`;
         this.mouseAction.preview.destroy();
         break;
       case Actions.MoveSelection:
+      case Actions.Scale:
+      case Actions.ScaleSelection:
         for(const p of this.mouseAction.previews) p.destroy();
     }
     this.mouseAction = null;
