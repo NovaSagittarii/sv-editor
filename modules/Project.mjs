@@ -492,10 +492,11 @@ height:100vh;`;
       case Actions.MoveSelection:
       case Actions.Scale:
       case Actions.ScaleSelection:
+        const snap = this.mouseT !== this.mouseTAligned; // TODO : add local isAligned binding somewhere
         for(let i = 0; i < this.mouseAction.sources.length; i ++){
           const n = this.mouseAction.previews[i];
           this.mouseAction.sources[i].setX(n.getX());
-          this.mouseAction.sources[i].setTime(n.getStart(), n.getEnd());
+          this.mouseAction.sources[i].setTime(snap ? this.getNearestLine(n.getStart()) : n.getStart(), snap ? this.getNearestLine(n.getEnd()) : n.getend());
           this.mouseAction.sources[i].setTimeScale(this.z);
         }
         // for(const n of this.mouseAction.sources){
