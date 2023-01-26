@@ -277,11 +277,11 @@ height:100vh;`;
     this.renderedMaxT = this.t - (minY + (this.app.view.height-100))/this.z;
     this.notes.forEach(n => {
       const bounds = n.graphics.getBounds();
-      n.graphics.renderable = n.graphics.interactive = n.graphics.interactiveChildren = n.linked.projected.graphics.renderable = bounds.y+bounds.height>=minY && bounds.y-bounds.height <= maxY;
+      n.graphics.renderable = n.graphics.interactive = n.graphics.interactiveChildren = n.graphics.visible&&(n.linked.projected.graphics.renderable = bounds.y+bounds.height>=minY && bounds.y-bounds.height <= maxY);
     })
     this.blocks.forEach(n => {
       const bounds = n.graphics.getBounds();
-      n.graphics.renderable = n.graphics.interactive = n.graphics.interactiveChildren = bounds.y+bounds.height>=minY && bounds.y-bounds.height <= maxY;
+      n.graphics.renderable = n.graphics.interactive = n.graphics.interactiveChildren = n.graphics.visible&&(bounds.y+bounds.height>=minY && bounds.y-bounds.height <= maxY);
     })
     this.refreshResult();
   }
@@ -371,6 +371,13 @@ height:100vh;`;
     // result.pivot.set(0, result.height);
     result.position.set(this.bounds.resultLeft, ~~(-start*this.z));
     result.scale.set(1, -this.z);
+  }
+  updateMouseOver(renderedObject){
+    this.mouseOver = null;
+    if(renderedObject){
+
+      this.mouseOver = renderedObject;
+    }
   }
   initiateMouseAction(action, source=null){
     this.abortMouseAction();

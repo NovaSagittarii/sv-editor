@@ -148,6 +148,7 @@ class RenderedLongNote extends RenderedObject {
     this.graphics.position.y = ~~(-this.linked.t * timeScale);
     this.graphicsTail.position.y = ~~(-(this.linked.t$ - this.linked.t) * timeScale);
     this.graphicsBody.scale.y = ~~(-(Math.abs(this.graphicsTail.position.y) - this.graphicsTail.height));
+    this.graphicsBody.visible = Math.abs(Math.abs(this.graphicsTail.position.y)-Math.abs(this.graphics.position.y)) > this.graphicsTail.height;
   }
 }
 
@@ -184,17 +185,18 @@ class RenderedSvBlock extends RenderedObject {
     body.interactive = true;
     body.on('pointerover', () => {
       body.alpha = 1;
-      if(baseEditor && !baseEditor.mouseOver) baseEditor.mouseOver = this;
+      if(baseEditor && !baseEditor.mouseOver) baseEditor.updateMouseOver(this);
     });
     body.on('pointerout', () => {
       body.alpha = 0.5;
-      if(baseEditor?.mouseOver == this) baseEditor.mouseOver = null;
+      if(baseEditor?.mouseOver == this) baseEditor.updateMouseOver(null);
     });
     body.on('pointerdown', e => {
       console.log("[svblock] tap!", e.data.button, e.data.buttons);
       switch(e.data.button){
         case MouseButtons.LEFT:
           baseEditor.initiateMouseAction(baseEditor.constructor.Actions.MoveSelection);
+          console.log(linked.getEnd(), baseEditor.mouseT);
           break;
         case MouseButtons.MIDDLE:
           this.destroy(baseEditor);
@@ -240,7 +242,8 @@ class RenderedSvBlock extends RenderedObject {
   setTimeScale(timeScale){
     this.graphics.position.x = this.linked.x * 50; // TODO : dont hardcode width
     this.graphics.position.y = -this.linked.t * timeScale;
-    this.graphicsBody.scale.y = -this.linked.duration * timeScale;
+    const height = this.graphicsBody.scale.y = -this.linked.duration * timeScale;
+    this.graphics.visible = Math.abs(height) >= 1;
   }
   getX(){
     return this.linked.getX();
@@ -252,6 +255,13 @@ class RenderedSvBlock extends RenderedObject {
     RenderedObject.prototype.destroy.call(this);
     if(baseEditor?.mouseOver == this) baseEditor.mouseOver = null;
     if(baseEditor) baseEditor.removeBlock(this);
+  }
+}
+
+class RenderedUIAttachment {
+  constructor(){
+    this.attachedTo = null;
+    // this.graphics =
   }
 }
 
