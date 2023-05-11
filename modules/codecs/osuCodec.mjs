@@ -4,6 +4,9 @@ import { TimingPoint } from '../TimingPoint.mjs';
 import { SvBlock } from '../SvBlock.mjs';
 import { SvBuilder } from '../SvBuilder.mjs';
 
+// const VERSION = 1;
+const EXTENSION = "osu";
+
 function calculateBaseBpm(project){
   const bpms = {};
   let baseBpm = 1;
@@ -111,6 +114,9 @@ function decode(text){
       }
     }
   }
+
+  project.setResource(Project.RESOURCE_AUDIO, project.metadata.General.AudioFilename);
+
   // post read processing (maybe move tp processing here if things break)
   sortByTime(project.notes);
   sortByTime(project.timingPoints);
@@ -251,4 +257,4 @@ function encode(project){
   return raw;
 }
 
-export { encode, decode };
+export { encode, decode, EXTENSION };

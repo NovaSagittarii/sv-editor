@@ -1,5 +1,5 @@
 import { Note, LongNote } from './Notes.mjs';
-import { MouseButtons } from './Constants.mjs';
+import { MouseButtons, Keys } from './Constants.mjs';
 import * as Rendered from './PIXIRendering.mjs';
 import SpriteRenderer from './PIXIRenderedSprites.mjs'
 import { SvBlock } from './SvBlock.mjs';
@@ -9,6 +9,8 @@ import { Cull } from '@pixi-essentials/cull';
 const Actions = Object.freeze({
   PlaceSVBlock: Symbol("place sv block"),
   MoveSelection: Symbol("move selected items"),
+  Scale: Symbol("scale selected item"),
+  ScaleSelection: Symbol("scale selected items"),
 });
 
 // console.log(Rendered);
@@ -50,6 +52,7 @@ height:100vh;`;
     this.t = 0;
     this.mouseX = this.mouseY = this.mouseT = 0;
     this.mouseOver = null;
+    this.mouseOverAttachment = {}; // TODO: have something exist
     this.mouseAction = null;
     this.prevSnap = 0; // if we're gonna be rendering measurelines might as well use them :D
     this.nextSnap = 0;
@@ -105,16 +108,9 @@ height:100vh;`;
       if(e.deltaY === 0) return; // displacement
       let up = e.deltaY < 0;
       if(e.ctrlKey){
-        this.setTimeScale(this.z = up ? (this.z*2) : (this.z/2));
+        this.setTimeScale(up ? (this.z*2) : (this.z/2));
       }else{
-        // if lines arent rendered completely cuz its zoomed out too much just use 1 second default (no ternary cuz thats unreadable)
-        if(this.lines[this.lines.length-1].t < this.t){
-          this.setTime(Math.max(0, this.t + (up ? -1 : 1)*1000*(e.shiftKey ? 10 : 1)));
-        }else{
-          if(e.altKey){
-            this.setTime(this.t + (up ? -1 : 1));
-          } else this.setTime(Math.max(0, this[(!up?"next":"prev")+(!e.shiftKey?"Snap":"Measure")]));
-        }
+        this.updateTime(up, e.shiftKey, e.altKey);
       }
       e.preventDefault();
     });
@@ -133,6 +129,21 @@ height:100vh;`;
             this.songAudio.play();
             app.ticker.add(this.syncTimeToAudio, this);
           }
+          break;
+        // bind keys LEFT/RIGHT for moving through time
+        case Keys.LEFT:
+        case Keys.RIGHT:
+          this.updateTime(e.keyCode === Keys.LEFT, e.shiftKey, e.altKey);
+          break;
+        case Keys.UP:
+        case Keys.DOWN:
+          // UP/DOWN (base) for changing subdivision
+          // UP/DOWN * Ctrl for changing zoom (alt :: +/- 1) (default :: *// 2)
+          if(e.ctrlKey) this.setTimeScale(this.z * ((2)**(e.keyCode === Keys.UP ? 1 : -1)));
+          else this.updateSubdivisions(Math.round(e.altKey
+            ? this.subdivisions + (     (e.keyCode === Keys.UP ? 1 : -1))
+            : this.subdivisions * (2 ** (e.keyCode === Keys.UP ? 1 : -1))
+          ));
           break;
       }
     });
@@ -183,6 +194,40 @@ height:100vh;`;
     this.dynamicStage.position.y = this.t*this.z;
     this.projectedStage.position.y = this.displacement[~~this.t];
 
+    this.updateSubdivisions();
+
+    // this.blocks.forEach(b => {
+    //   const block = b.linked;
+    //   const svBlockEditor = block.func.editor;
+    //   if(svBlockEditor && this.t >= block.t && this.t <= block.t+block.duration){ // filter condition
+    //     svBlockEditor.setTimeScale(this.z);
+    //     svBlockEditor.setTime(this.t-block.t);
+    //   }
+    //   /* b.graphicsDebugDisplay.text = block.func.evaluate(this.t - block.t).toFixed(3) + 'x';
+    //   b.graphicsDebugDisplay.position.y = -this.dynamicStage.position.y - b.graphics.position.y;
+    //   b.graphicsDebugDisplay.anchor.set(0, 0); */
+    // });
+
+    // some tree structure seems appropriate for culling (esp since they dont move around much)
+    if(this.renderedMinT === void 0 || (this.t < this.renderedMinT || this.t > this.renderedMaxT)) this.refreshCulling();
+    this.refreshMousePosition();
+  }
+  updateTime(backwards, shift, alt){
+    // if lines arent rendered completely cuz its zoomed out too much just use 1 second default (no ternary cuz thats unreadable)
+    if(this.lines[this.lines.length-1].t < this.t){
+      this.setTime(Math.max(0, this.t + (backwards ? -1 : 1)*1000*(shift ? 10 : 1)));
+    }else{
+      // alt       : small modifier (1 ms)
+      // none      : default (subdivision)
+      // shift     : big modifier (measures)
+      // alt+shift : really big modifier (sections)
+      if(alt && shift) return; // TODO: setup bookmarks
+      else if(alt) this.setTime(this.t + (backwards ? -1 : 1));
+      else this.setTime(Math.max(0, this[(!backwards?"next":"prev")+(!shift?"Snap":"Measure")]));
+    }
+  }
+  updateSubdivisions(subdivisions){
+    if(subdivisions !== void 0) this.subdivisions = subdivisions;
     let i = 0;
     let currentTimingPoint = this.linked.timingPoints[0]; // TODO: use something O(1) instead of O(n)
     while(i < this.linked.timingPoints.length){
@@ -220,27 +265,21 @@ height:100vh;`;
         if(time > this.t+1.5 && !this.nextMeasure) this.nextMeasure = truncatedTime;
       } // to get all measure snaps: this.lines.map(l => l.t)
     });
-
-    // this.blocks.forEach(b => {
-    //   const block = b.linked;
-    //   const svBlockEditor = block.func.editor;
-    //   if(svBlockEditor && this.t >= block.t && this.t <= block.t+block.duration){ // filter condition
-    //     svBlockEditor.setTimeScale(this.z);
-    //     svBlockEditor.setTime(this.t-block.t);
-    //   }
-    //   /* b.graphicsDebugDisplay.text = block.func.evaluate(this.t - block.t).toFixed(3) + 'x';
-    //   b.graphicsDebugDisplay.position.y = -this.dynamicStage.position.y - b.graphics.position.y;
-    //   b.graphicsDebugDisplay.anchor.set(0, 0); */
-    // });
-
-    // some tree structure seems appropriate for culling (esp since they dont move around much)
-    if(this.renderedMinT === void 0 || (this.t < this.renderedMinT || this.t > this.renderedMaxT)) this.refreshCulling();
-    this.refreshMousePosition();
   }
   refreshMousePosition(){
     const dy = this.mouseY - (this.app.view.height-100);
     this.mouseT = this.t - dy/this.z;
     this.mouseTAligned = this.getNearestLine(Math.floor(this.mouseT));
+
+
+    if(this.mouseOver){
+      const {x, width} = this.mouseOver.graphicsBody.getBounds();
+      if(this.mouseOver.linked.getEnd() - this.mouseT < 50 && this.mouseX >= x && this.mouseX <= x+width/3){
+        this.mouseOverAttachment.opacity = 1;
+        //console.log("scale ready");
+      }else this.mouseOverAttachment.opacity = 0;
+    }else this.mouseOverAttachment.opacity = 0;
+
     this.refreshMouseAction();
   }
   refreshCulling(){ // return;
@@ -251,11 +290,11 @@ height:100vh;`;
     this.renderedMaxT = this.t - (minY + (this.app.view.height-100))/this.z;
     this.notes.forEach(n => {
       const bounds = n.graphics.getBounds();
-      n.graphics.renderable = n.graphics.interactive = n.graphics.interactiveChildren = n.linked.projected.graphics.renderable = bounds.y+bounds.height>=minY && bounds.y-bounds.height <= maxY;
+      n.graphics.renderable = n.graphics.interactive = n.graphics.interactiveChildren = n.graphics.visible&&(n.linked.projected.graphics.renderable = bounds.y+bounds.height>=minY && bounds.y-bounds.height <= maxY);
     })
     this.blocks.forEach(n => {
       const bounds = n.graphics.getBounds();
-      n.graphics.renderable = n.graphics.interactive = n.graphics.interactiveChildren = bounds.y+bounds.height>=minY && bounds.y-bounds.height <= maxY;
+      n.graphics.renderable = n.graphics.interactive = n.graphics.interactiveChildren = n.graphics.visible&&(bounds.y+bounds.height>=minY && bounds.y-bounds.height <= maxY);
     })
     this.refreshResult();
   }
@@ -263,8 +302,8 @@ height:100vh;`;
     // y = zt
     /*this.t += this.t * (z-this.z) / z;
     this.app.stage.position.y = this.t*z;*/
-    this.setTime(this.t + this.t * (z-this.z) / z);
     this.z = z;
+    this.setTime(this.t + this.t * (z-this.z) / z);
     this.notes.forEach(n => n.setTimeScale(z));
     this.blocks.forEach(block => block.setTimeScale(z));
     this.refreshCulling();
@@ -346,6 +385,15 @@ height:100vh;`;
     result.position.set(this.bounds.resultLeft, ~~(-start*this.z));
     result.scale.set(1, -this.z);
   }
+  updateMouseOver(renderedObject){
+    if(this.mouseOver !== renderedObject){
+      this.mouseOver = null;
+      if(renderedObject){
+        // console.log("NEW ELEMENT", renderedObject.linked.getStart(), renderedObject.linked.getEnd());
+        this.mouseOver = renderedObject;
+      }
+    }
+  }
   initiateMouseAction(action, source=null){
     this.abortMouseAction();
     switch(action){
@@ -366,17 +414,20 @@ height:100vh;`;
         this.refreshMouseAction();
         break;
       }
+      case Actions.Scale:
+      case Actions.ScaleSelection:
       case Actions.MoveSelection: {
         const sources = [source || this.mouseOver];
         this.mouseAction = {
           type: action,
           mouseX: this.mouseX,
           mouseT: this.mouseTAligned,
+          mouseT0: Math.min(...sources.map(x => x.linked.getStart())), // only used for scaling
           sources: sources,
           previews: sources.map(source => {
             const preview = Rendered.from(source.linked.clone(), this);
             preview.graphics.interactive = preview.graphics.interactiveChildren = false;
-            preview.graphicsBody.tint = 0xff0000;
+            preview.graphicsBody.tint = action===Actions.MoveSelection ? 0xff0000 : 0x00ff00;
             this.dynamicStage.addChild(preview.graphics);
             return preview;
           }),
@@ -414,6 +465,21 @@ height:100vh;`;
         }
         break;
       }
+      case Actions.Scale:
+      case Actions.ScaleSelection: {
+        const {k} = this.mouseAction;
+        const t0 = this.mouseAction.mouseT0;
+        this.mouseAction.k = (this.mouseTAligned - t0) / (this.mouseAction.mouseT - t0);
+        if(k !== this.mouseAction.k){
+          const {k} = this.mouseAction;
+          for(let i = 0; i < this.mouseAction.sources.length; i ++){
+            const s = this.mouseAction.sources[i];
+            const p = this.mouseAction.previews[i];
+            p.setTime((s.getStart()-t0)*k + t0, (s.getEnd()-t0)*k + t0);
+            p.setTimeScale(this.z);
+          }
+        }
+      }
     }
   }
   resolveMouseAction(){ // process input
@@ -424,10 +490,13 @@ height:100vh;`;
           this.linked.addBlock(new SvBlock(SvBlock.Operation.ADD, this.mouseAction.x, Math.min(this.mouseAction.t, this.mouseTAligned), Math.abs(this.mouseTAligned - this.mouseAction.t)));
         break;
       case Actions.MoveSelection:
+      case Actions.Scale:
+      case Actions.ScaleSelection:
+        const snap = this.mouseT !== this.mouseTAligned; // TODO : add local isAligned binding somewhere
         for(let i = 0; i < this.mouseAction.sources.length; i ++){
           const n = this.mouseAction.previews[i];
           this.mouseAction.sources[i].setX(n.getX());
-          this.mouseAction.sources[i].setTime(n.getStart(), n.getEnd());
+          this.mouseAction.sources[i].setTime(snap ? this.getNearestLine(n.getStart()) : n.getStart(), snap ? this.getNearestLine(n.getEnd()) : n.getend());
           this.mouseAction.sources[i].setTimeScale(this.z);
         }
         // for(const n of this.mouseAction.sources){
@@ -444,6 +513,8 @@ height:100vh;`;
         this.mouseAction.preview.destroy();
         break;
       case Actions.MoveSelection:
+      case Actions.Scale:
+      case Actions.ScaleSelection:
         for(const p of this.mouseAction.previews) p.destroy();
     }
     this.mouseAction = null;
@@ -451,13 +522,20 @@ height:100vh;`;
 }
 
 class Project {
+  static RESOURCE_BACKGROUND = "background";
+  static RESOURCE_AUDIO = "audio";
   constructor(){
     this.metadata = {};
+    this.resources = {
+      background: null,
+      audio: null,
+    };
     this.notes = [];
     this.timingPoints = [];
     this.blocks = [];
     this.editor = null;
     this.songAudio = null;
+    this.speed = []; // used for velocity calculations
   }
   openEditor(){
     if(this.editor) throw 'project editor already opened';
@@ -467,8 +545,17 @@ class Project {
     this.editor?.destroy();
     this.editor = null;
   }
+  setResource(k, v){
+    this.resources[k] = v; // oop notation would be nice, it is a lil troll tho i think
+  } // Mitsukiyo - Blue Archive OST Volume I (NovaSagittarii) [Future Bossa  cindsa's Another]
+  getName(){
+    let osuMetadata = this.metadata.Metadata;
+    return (osuMetadata && `${osuMetadata.ArtistUnicode} - ${osuMetadata.TitleUnicode} (${osuMetadata.Creator}) [${osuMetadata.Version}]`.replace(/[^A-Za-z0-9\-\[\]\(\)]/g, ' ')) 
+        || ("newProject" + new Date().toISOString());
+  }
   loadResources(files){
-    const audioFile = files.filter(x => x.name === this.metadata.General.AudioFilename)[0];
+    const _start = performance.now();
+    const audioFile = files.filter(x => x.name === this.resources.audio)[0];
     if(!audioFile) throw "audio file not found!";
     const reader = new FileReader();
     reader.addEventListener('load', () => {
@@ -476,30 +563,9 @@ class Project {
         src: reader.result,
         format: audioFile.name.split('.').pop().toLowerCase() // always give file extension: this is optional but helps
       });
-      this.songAudio.once('load', () => console.log("Audio is loaded"));
+      this.songAudio.once('load', () => console.log(0|(performance.now()-_start), "ms to load audio"));
     });
     reader.readAsDataURL(audioFile);
-  }
-  // loads resources from jsZip object instead of filenames
-  // TODO: this should be able to be merged with loadResources
-  async loadResourcesZip(jsZip) {
-    const audioFile = jsZip.files[this.metadata.General.AudioFilename];
-
-    if (!audioFile) throw "audio file not found!";
-    // blob, we need to convert to base64url
-    const audioData = await audioFile.async("blob");
-
-    const reader = new FileReader();
-
-    reader.addEventListener("load", () => {
-      this.songAudio = new Howl({
-        src: reader.result,
-        format: audioFile.name.split(".").pop().toLowerCase(), // always give file extension: this is optional but helps
-      });
-      this.songAudio.once("load", () => console.log("Audio is loaded"));
-    });
-
-    reader.readAsDataURL(audioData);
   }
   addBlock(){
     for(const block of arguments){

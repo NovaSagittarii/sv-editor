@@ -33,9 +33,10 @@ class SvBuilder {
     for(const point of this.points) point.x *= k;
   }
   integrate(a, b){
+    console.log(a,b);
     if(!this.sorted) this.sort();
 
-    let l = 0, r = this.points.length-1, m, lm;
+    let l = 0, r = this.points.length-1, m, lm=0;
     while(l <= r){
       m = ~~((l+r)/2); // t----  A t1---  B
       // console.log(l, r, m);
