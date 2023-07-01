@@ -193,6 +193,7 @@ function encode(project){
   let tp = -1, currentTimingPoint;
   let bpmChanged = false;
   let prevSpeed = null;
+  let spike = false;
   const baseBpm = calculateBaseBpm(project).baseBpm;
 
   raw += `\n0,${60000/baseBpm},${4},2,0,30,1,0`; // osu dies on green tp without red tp to use
@@ -210,13 +211,13 @@ function encode(project){
       0int,1float,    2int, 3int,     4int,       5int,  6bool(0/1), 7int
       effects: bit0 - kiai, bit3 - ignore first barline
       */
-      prevSpeed = null;
+      // prevSpeed = null;
     }
     // let exportSpeed = project.speed[t] / (currentTimingPoint.bpm / baseBpm);
     let exportSpeed = project.speed[t] / currentTimingPoint.bpm * baseBpm;
     if(prevSpeed === exportSpeed){
       // necessary to reset bpm (if needed)
-      raw += (uninherited||"") + (inherited||"");
+      // raw += (uninherited||"") + (inherited||"");
       continue;
     } prevSpeed = exportSpeed;
     if(exportSpeed >= 0.01 && exportSpeed <= 10){ // TODO : accumulator so its not so dumb
@@ -227,12 +228,18 @@ function encode(project){
         uninherited = `\n${t},${60000/currentTimingPoint.bpm},${currentTimingPoint.meter},2,0,30,1,0`;
         bpmChanged = false;
       }
+      spike = false;
       inherited = `\n${t},${-100/exportSpeed},${currentTimingPoint.meter},2,0,30,0,0`;
     }else{
       // console.log(exportSpeed, t);
       // something 0.01x (100) or 10x (0.1) that we can reach
-      const coef = Math.max(0.1, Math.random()*100);
-      const bpm = Math.min(Math.max(project.speed[t], 0.0001), 14000) * baseBpm  * coef; // speed = bpm/baseBpm ;; bpm = speed * base BPM
+      const coef = 0.1;//Math.max(0.1, Math.random()*100);
+      let bpm = Math.min(Math.max(project.speed[t], 0.0001), 100+0*14000) * baseBpm  * coef; // speed = bpm/baseBpm ;; bpm = speed * base BPM
+      if(project.speed[t] >= 200){
+        if(spike) continue;
+        bpm = 10000;
+        spike = true;
+      }else spike = false;
       // const sv = project.speed[t] / bpm * baseBpm;
       // const sv = SP / (SP * baseBpm * coef) * baseBpm = 1/ coef;
       const sv = 1 / coef;
