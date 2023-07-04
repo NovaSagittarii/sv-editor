@@ -284,8 +284,8 @@ height:100vh;`;
   }
   refreshCulling(){ // return;
     const viewport = this.app.screen;
-    const minY = viewport.y - viewport.height;
-    const maxY = viewport.height + viewport.height/2;
+    const minY = viewport.y - viewport.height*2;
+    const maxY = viewport.height;
     this.renderedMinT = this.t - (maxY - (this.app.view.height-100))/this.z;
     this.renderedMaxT = this.t - (minY + (this.app.view.height-100))/this.z;
     this.notes.forEach(n => {
