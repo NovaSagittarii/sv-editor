@@ -10,7 +10,7 @@ import * as Codecs from './modules/Codecs.mjs';
 });*/
 
 // example file
-fetch("./assets/Smigonaut_-_Shower_Beer.zip").then(x => x.blob()).then(unzip).then(parseFiles);
+fetch("./assets/linear ring - isomorph.zip").then(x => x.blob()).then(unzip).then(parseFiles);
 
 let selectFile;
 function parseFiles(files){
