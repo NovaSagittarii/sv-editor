@@ -10,7 +10,16 @@ import * as Codecs from './modules/Codecs.mjs';
 });*/
 
 // example file
-fetch("./assets/linear ring - isomorph.zip").then(x => x.blob()).then(unzip).then(parseFiles);
+(async () => {
+  const files = [];
+  for(let w of [
+    "./assets/2024005 Akira Complex x Hommarju feat. Yukacco - Connected (WRLD Remix) (Cut Ver.).osz",
+    "./assets/linear ring - isomorph.zip",
+    "./assets/Smigonaut_-_Shower_Beer.zip"
+  ])
+    await fetch(w).then(x => x.blob()).then(unzip).then(x => x.forEach(file => files.push(file)));
+    parseFiles(files);
+})();
 
 let selectFile;
 function parseFiles(files){
