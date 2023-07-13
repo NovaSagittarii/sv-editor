@@ -67,7 +67,7 @@ window.addEventListener('load', () => {
     button.addEventListener('click', () => callback());
     container.append(button);
   }
-  setInterval(() => {
-    if(project?.editor && project?.editor?.songAudio?.playing() === false) project.editor.refreshOutput()
-  }, 1000);
+  // setInterval(() => {
+  //   if(project?.editor && project?.editor?.songAudio?.playing() === false) project.editor.refreshOutput()
+  // }, 1000);
 });
