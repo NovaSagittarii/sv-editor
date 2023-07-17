@@ -192,6 +192,7 @@ class RenderedSvBlock extends RenderedObject {
       if(baseEditor?.mouseOver == this) baseEditor.updateMouseOver(null);
     });
     body.on('pointerdown', e => {
+      if(baseEditor && !baseEditor.mouseOver) baseEditor.updateMouseOver(this);
       console.log("[svblock] tap!", e.data.button, e.data.buttons);
       switch(e.data.button){
         case MouseButtons.LEFT:
