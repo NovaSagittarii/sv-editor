@@ -1,5 +1,12 @@
 // its literally a function
 
+function round(exportSpeed){
+  if(exportSpeed < 0.3) return Math.round(exportSpeed*20)/20;
+  else if(exportSpeed < 2) return Math.round(exportSpeed*10)/10;
+  else if(exportSpeed < 10) return Math.round(exportSpeed*5)/5;
+  else return Math.round(exportSpeed)/exportSpeed;
+}
+
 class Function {
   // Square, Sine, Cosine, Triangle
   // static Quadratic = new EasingFunction("Quadratic", (x, y=x, t=0) => x+(y-x)*(t**2));
@@ -30,10 +37,10 @@ const Functions = {
     (t, t0, x0) => x0,
     (t0, x0) => `${x0.toPrecision(2)}`),
   Linear: new Function("Linear", ["x1", "x2"],
-    (t, t0, x0, x, y) => (x0+x*(1-t)+y*t),
+    (t, t0, x0, x, y) => round(x0+x*(1-t)+y*t),
     (t0, x0, x, y) => `${(x+x0).toPrecision(2)} to ${(y+x0).toPrecision(2)}`),
   Sine: new Function("Sine", ["A", "f"],
-    (t, t0, x0, A, f) => x0+A*Math.sin(((t+t0)*Math.PI*2*f)),
+    (t, t0, x0, A, f) => round(x0+A*Math.sin(((t+t0)*Math.PI*2*f))),
     (t0, x0, A, f) => `sin ${(x0-A).toPrecision(2)} to ${(x0+A).toPrecision(2)} @ ${f.toPrecision(2)}Hz`),
   Square: new Function("Square", ["A", "f", "DC"],
     (t, t0, x0, A, f, DC) => x0+((((t+t0)*f)%1)<DC?A:0),
