@@ -37,3 +37,37 @@ function normalizeProjectExport(){
 function getCurrentOutputSpeed(){
   return project.speed[~~project.editor.t]
 }
+
+window.addEventListener('load', () => {
+  const helperUtils = [
+    {
+      name: "Refresh",
+      callback: () => project.editor.refreshOutput(),
+    },
+    {
+      name: "Export osz",
+      callback: () => exportProject('osuCodec'),
+    },
+    {
+      name: "Export sf",
+      callback: () => exportProject('editorCodec'),
+    },
+  ];
+  const container = document.createElement("div");
+  container.style.position = "absolute";
+  container.style.top = 0;
+  container.style.display = "flex";
+  container.style.gap = "5px";
+  container.style.zIndex = 100;
+  document.body.append(container);
+  for(const {name, callback} of helperUtils){
+    const button = document.createElement("button");
+    button.innerText = name;
+    button.style.padding = "0.5em";
+    button.addEventListener('click', () => callback());
+    container.append(button);
+  }
+  // setInterval(() => {
+  //   if(project?.editor && project?.editor?.songAudio?.playing() === false) project.editor.refreshOutput()
+  // }, 1000);
+});
