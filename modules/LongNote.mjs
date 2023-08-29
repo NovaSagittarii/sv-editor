@@ -14,6 +14,10 @@ class LongNote extends Note {
     this.t = start;
     this.t$ = end;
   }
+  addTime(dt){
+    this.t += dt;
+    this.t$ += dt;
+  }
   getEnd(){
     return this.t$;
   }

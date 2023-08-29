@@ -194,6 +194,7 @@ function encode(project){
   let bpmChanged = false;
   let prevSpeed = null;
   let spike = false;
+  let nextBarline, barlineInterval;
   const baseBpm = calculateBaseBpm(project).baseBpm;
 
   raw += `\n0,${60000/baseBpm},${4},2,0,30,1,0`; // osu dies on green tp without red tp to use
@@ -211,21 +212,29 @@ function encode(project){
       0int,1float,    2int, 3int,     4int,       5int,  6bool(0/1), 7int
       effects: bit0 - kiai, bit3 - ignore first barline
       */
-      // prevSpeed = null;
+      // prevSpeed = null;  
+      nextBarline = currentTimingPoint.t;
+      barlineInterval = (60000/currentTimingPoint.bpm)*currentTimingPoint.meter;
     }
     // let exportSpeed = project.speed[t] / (currentTimingPoint.bpm / baseBpm);
     let exportSpeed = project.speed[t] / currentTimingPoint.bpm * baseBpm;
+    const showLine = Math.floor(nextBarline) === t;
+    if(showLine){
+      nextBarline += barlineInterval;
+      console.log(t);
+      bpmChanged = true; // make sure a redline is exported
+    }
     if(prevSpeed === exportSpeed){
       // necessary to reset bpm (if needed)
       // raw += (uninherited||"") + (inherited||"");
-      continue;
+      if(!showLine) continue;
     } prevSpeed = exportSpeed;
     if(exportSpeed >= 0.01 && exportSpeed <= 10){ // TODO : accumulator so its not so dumb
       // within the bounds of the clamp
       if(bpmChanged){ // only reset bpm if we're all good again to be using current bpm
         // console.log(t);
         // TODO : change bpm onto original snap once possible (so the lines arent dumb)
-        uninherited = `\n${t},${60000/currentTimingPoint.bpm},${currentTimingPoint.meter},2,0,30,1,0`;
+        uninherited = `\n${t},${60000/currentTimingPoint.bpm},${currentTimingPoint.meter},2,0,30,1,${showLine?0:8}`;
         bpmChanged = false;
       }
       spike = false;
@@ -244,7 +253,7 @@ function encode(project){
       // const sv = SP / (SP * baseBpm * coef) * baseBpm = 1/ coef;
       const sv = 1 / coef;
       if(sv < 0.01 || sv > 10) console.warn("bruh wtf", bpm, coef, sv, t);
-      uninherited = `\n${t},${60000/bpm},${currentTimingPoint.meter},2,0,30,1,0`;
+      uninherited = `\n${t},${60000/bpm},${currentTimingPoint.meter},2,0,30,1,${showLine?0:8}`;
       inherited = `\n${t},${-100/sv},${currentTimingPoint.meter},2,0,30,0,0`;
       bpmChanged = true;
     }

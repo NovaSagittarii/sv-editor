@@ -325,9 +325,9 @@ height:100vh;`;
     return newT;
   }
   addNote(note){
-    const n = Rendered.from(note);
+    const n = Rendered.from(note, this);
     this.dynamicStage.addChild(n.graphics);
-    const n2 = Rendered.from(note.clone());
+    const n2 = Rendered.from(note.clone(), this);
     note.projected = n2;
     n2.setTimeScale(1); // TODO: uhh i'll sync this later
     this.projectedStage.addChild(n2.graphics);

@@ -95,16 +95,26 @@ class RenderedLine extends RenderedObject {
 class RenderedNote extends RenderedObject {
   constructor(linked, editor){
     super(linked);
-    let g;
-    if(editor){
-      g = this.graphics = new PIXI.Sprite(editor.sprites.Note);
+    let g = this.graphics = new PIXI.Container();
+    let body;
+    if(editor){ // why is this so broken??
+      body = new PIXI.Sprite(editor.sprites.Note);
     }else{
-      g = this.graphics = new PIXI.Graphics();
-      g.beginFill(0x0077e6);
-      g.drawRect(0, 0, 100, 40);
+      body = new PIXI.Graphics();
+      body.beginFill(0x0077e6);
+      body.drawRect(0, 0, 100, 40);
     }
+
+    g.addChild(body);
     g.pivot.set(0, g.height); // nudge up
     g.position.set(this.linked.x*100, -this.linked.t);
+
+    g.on('click', ({data}) => {
+      const event = data.originalEvent;
+      console.log(event.altKey ? 1 : -1, this);
+      this.linked.addTime(event.altKey ? 1 : -1);
+      this.setTimeScale(editor.z);
+    });
   }
   setTime(t){ // method for live replay
     // this.graphics.position.y = -(this.t = t);
@@ -117,7 +127,7 @@ class RenderedLongNote extends RenderedObject {
     super(linked);
     const g = this.graphics = new PIXI.Container();
     let head, tail, body;
-    if(editor){
+    if(false && editor){ // PIXI.Sprite doesnt have position apparently??
       head = new PIXI.Sprite(editor.sprites.LongNoteHead);
       tail = new PIXI.Sprite(editor.sprites.LongNoteTail);
       body = new PIXI.Sprite(editor.sprites.LongNoteBody);
