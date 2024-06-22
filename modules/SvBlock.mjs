@@ -15,6 +15,12 @@ const Operations = {
   divide: (x, y) => x/y,
   intensify: (x) => x, // TODO
   normalize: (x) => x, // TODO
+
+  // these two are at svblock level since
+  // you need to know the time relative to the start
+  // possibly pass time (instead of %) to function in the future?
+  capture: (x, y) => x, // passthrough
+  load: (x, y) => y, // set
 };
 Object.keys(Operations).forEach(operation => {
   const symbol = Symbol('sv:'+operation.toLowerCase());
@@ -25,6 +31,12 @@ Object.keys(Operations).forEach(operation => {
 });
 
 class SvBlock {
+  /**
+   * Captured velocities
+   * @type { {Object.<string, number[]>} }
+   */
+  static Captures = {};
+
   static Operation = OperationEnum;
   constructor(operation=SvBlock.Operation.SET, col=0, t=0, duration=0){
     // if(t !== Math.round(t)) throw `expected integer t, observed t=${t}`;
@@ -121,6 +133,28 @@ class SvBlock {
         for(let x = Math.round(start); x < end; x ++) displacement += velocityArray[x];
         y = this.evaluate(start) * (end - start) / displacement;
         break;
+      case SvBlock.Operation.CAPTURE: {
+        // note: an inversion in the capture order will result in multiple
+        // refreshes required to make the values propagate fully
+        
+        // capture velocities
+        const segment = SvBlock.Captures[this.func.params[1]] = new Array(end - start);
+        for(let t = start; t < end; t ++) {
+          segment[t - start] = velocityArray[t];
+        }
+        return velocityArray; // just exit early
+        // passthrough
+        // func = Operations.add;
+        // y = 0;
+        // break;
+      }
+      case SvBlock.Operation.LOAD: {
+        const segment = SvBlock.Captures[this.func.params[1]];
+        for(let t = start; t < end; t ++) {
+          velocityArray[t] = segment[(t - start) % segment.length];
+        }
+        return velocityArray; // just exit early
+      }
     }
     for(let t = start; t < end; t ++){
       velocityArray[t] = func(velocityArray[t], y !== null ? y : this.evaluate(t));
