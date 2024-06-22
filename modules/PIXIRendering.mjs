@@ -224,6 +224,7 @@ class RenderedSvBlock extends RenderedObject {
   }
   render(){ // the thing shown on the rectangle for the svBlock
     this.graphicsLabel.text = this.linked.getLabel();
+    this.graphicsLabel.position.y = -this.graphicsLabel.height; // update height
     return; // TODO: implement render
     const l = this.graphicsLine;
     l.clear();
