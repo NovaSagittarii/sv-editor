@@ -18,15 +18,16 @@ const Actions = Object.freeze({
 class ProjectEditor {
   static Actions = Actions;
   constructor(linked){
+    this.kColumnCount = 10;
     this.bounds = {
       noteLeft: 0,
       noteRight: 400,
       blockLeft: 400,
-      blockRight: 650,
-      resultLeft: 650,
-      resultRight: 750,
-      liveLeft: 750,
-      liveRight: 1150
+      blockRight: 400 + 50*this.kColumnCount,
+      resultLeft: 400 + 50*this.kColumnCount,
+      resultRight: 500 + 50*this.kColumnCount,
+      liveLeft: 500 + 50*this.kColumnCount,
+      liveRight: 900 + 50*this.kColumnCount
     };
 
     this.linked = linked;
@@ -399,7 +400,7 @@ height:100vh;`;
     switch(action){
       case Actions.PlaceSVBlock: {
         const preview = Rendered.from(new SvBlock(), this);
-        const x = Math.floor((this.mouseX-this.bounds.blockLeft)/((this.bounds.blockRight-this.bounds.blockLeft)/5));
+        const x = Math.floor((this.mouseX-this.bounds.blockLeft)/((this.bounds.blockRight-this.bounds.blockLeft)/this.kColumnCount));
         // preview.graphics.position.x = this.bounds.blockLeft + 50*x;
         preview.setX(x);
         preview.graphics.interactive = preview.graphics.interactiveChildren = false;
