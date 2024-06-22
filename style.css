@@ -20,10 +20,20 @@
 
 
 #loader {
-  width: 100vw;
-  height: 100vh;
+  border: #0004 solid 1px;
+  border-radius: 1em;
+  padding: 1em;
+
+  margin: 3em auto auto auto;
+  min-width: 67%;
+  width: fit-content;
+  height: fit-content;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
+}
+
+#loader > select:first-of-type {
+  margin-top: 1em;
 }
