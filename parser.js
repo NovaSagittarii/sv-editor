@@ -21,8 +21,17 @@ import * as Codecs from './modules/Codecs.mjs';
     parseFiles(files);
 })();
 
-let selectFile;
+let selectFile, selectColumnCount;
 function parseFiles(files){
+  selectColumnCount?.remove();
+  selectColumnCount = document.createElement('select');
+  [5, 7, 9, 10].forEach(k => {
+    let option = document.createElement('option');
+    option.value = k;
+    option.innerText = `Use ${k} sv columns`;
+    selectColumnCount.append(option);
+  });
+
   console.log(files);
   selectFile?.remove();
   // create a secondary select element to select the specific difficulty of
@@ -64,7 +73,7 @@ function parseFiles(files){
     // selectFile.remove();
     // inputFile.remove();
   });
-  document.getElementById("loader").append(selectFile);
+  document.getElementById("loader").append(selectColumnCount, selectFile);
 }
 
 async function unzip(zipfile){

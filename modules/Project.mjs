@@ -17,8 +17,8 @@ const Actions = Object.freeze({
 
 class ProjectEditor {
   static Actions = Actions;
-  constructor(linked){
-    this.kColumnCount = 10;
+  constructor(linked, columnCount=5){
+    this.kColumnCount = columnCount;
     this.bounds = {
       noteLeft: 0,
       noteRight: 400,
@@ -538,9 +538,9 @@ class Project {
     this.songAudio = null;
     this.speed = []; // used for velocity calculations
   }
-  openEditor(){
+  openEditor(columnCount=5){
     if(this.editor) throw 'project editor already opened';
-    this.editor = new ProjectEditor(this);
+    this.editor = new ProjectEditor(this, columnCount);
   }
   closeEditor(){
     this.editor?.destroy();
