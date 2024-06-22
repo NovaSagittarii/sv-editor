@@ -25,7 +25,7 @@ let selectFile, selectColumnCount;
 function parseFiles(files){
   selectColumnCount?.remove();
   selectColumnCount = document.createElement('select');
-  [5, 7, 9, 10].forEach(k => {
+  [5, 7, 9, 10, 12].forEach(k => {
     let option = document.createElement('option');
     option.value = k;
     option.innerText = `Use ${k} sv columns`;
@@ -65,7 +65,7 @@ function parseFiles(files){
       codecs = Codecs; // expose more stuff to global scope
       console.log(0|(performance.now()-_start), "ms file load time");
       _start = performance.now();
-      project.openEditor();
+      project.openEditor(selectColumnCount.value);
       console.log(0|(performance.now()-_start), "ms to open editor");
     });
     reader.readAsText(file);
