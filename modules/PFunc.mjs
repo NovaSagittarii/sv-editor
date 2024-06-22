@@ -14,7 +14,7 @@ class PFuncEditor {
     const buttonMove = this.descriptionHTMLElement = document.createElement("button");
     this.x = 0;
     this.y = 0;
-    buttonMove.innerText = this.linked.getLabel();
+    buttonMove.innerText = this.linked.getLabel().replace(/\n/g, ' ');
     buttonMove.addEventListener('mousedown', e => {
       let {screenX, screenY} = e;
       document.body.addEventListener('mouseup', e => {
@@ -111,7 +111,7 @@ class PFuncEditor {
     this.refresh();
   }
   refresh(){
-    this.descriptionHTMLElement.innerText = this.linked.getLabel();
+    this.descriptionHTMLElement.innerText = this.linked.getLabel().replace(/\n/g, ' ');
     this.renderedSvBlock.render(); // TODO : setup delay to avoid consecutive rerender
   }
   setPosition(x, y){
