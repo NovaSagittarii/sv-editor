@@ -224,6 +224,10 @@ function encode(project){
       console.log(t);
       bpmChanged = true; // make sure a redline is exported
     }
+
+    while (t > Math.floor(nextBarline)) nextBarline += barlineInterval;
+    // update nextBarline in case one was missed (see linear ring - cache)
+
     if(prevSpeed === exportSpeed){
       // necessary to reset bpm (if needed)
       // raw += (uninherited||"") + (inherited||"");
