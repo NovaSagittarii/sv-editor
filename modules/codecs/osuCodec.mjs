@@ -247,8 +247,9 @@ function encode(project){
       // console.log(exportSpeed, t);
       // something 0.01x (100) or 10x (0.1) that we can reach
       const coef = 0.1;//Math.max(0.1, Math.random()*100);
-      let bpm = Math.min(Math.max(project.speed[t], 0.0001), 100+0*14000) * baseBpm  * coef; // speed = bpm/baseBpm ;; bpm = speed * base BPM
-      if(project.speed[t] >= 200){
+      const MAX_SPEED = 1000;
+      let bpm = Math.min(Math.max(project.speed[t], 0.0001), MAX_SPEED) * baseBpm  * coef; // speed = bpm/baseBpm ;; bpm = speed * base BPM
+      if(project.speed[t] > MAX_SPEED){
         if(spike) continue;
         bpm = 10000;
         spike = true;
