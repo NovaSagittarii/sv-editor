@@ -195,6 +195,7 @@ function encode(project){
   let prevSpeed = null;
   let spike = false;
   let nextBarline, barlineInterval;
+  let dt = 0; // offset
   const baseBpm = calculateBaseBpm(project).baseBpm;
 
   raw += `\n0,${60000/baseBpm},${4},2,0,30,1,0`; // osu dies on green tp without red tp to use
@@ -206,7 +207,7 @@ function encode(project){
       tp ++;
       currentTimingPoint = project.timingPoints[tp];
       // TODO : export other properties of timingpoint
-      uninherited = `\n${currentTimingPoint.t},${60000/currentTimingPoint.bpm},${currentTimingPoint.meter},2,0,30,1,0`;
+      uninherited = `\n${currentTimingPoint.t+dt},${60000/currentTimingPoint.bpm},${currentTimingPoint.meter},2,0,30,1,0`;
       /*
       time,beatLength,meter,sampleSet,sampleIndex,volume,uninherited,effects
       0int,1float,    2int, 3int,     4int,       5int,  6bool(0/1), 7int
@@ -238,17 +239,18 @@ function encode(project){
       if(bpmChanged){ // only reset bpm if we're all good again to be using current bpm
         // console.log(t);
         // TODO : change bpm onto original snap once possible (so the lines arent dumb)
-        uninherited = `\n${t},${60000/currentTimingPoint.bpm},${currentTimingPoint.meter},2,0,30,1,${showLine?0:8}`;
+        uninherited = `\n${t+dt},${60000/currentTimingPoint.bpm},${currentTimingPoint.meter},2,0,30,1,${showLine?0:8}`;
         bpmChanged = false;
       }
       spike = false;
-      inherited = `\n${t},${-100/exportSpeed},${currentTimingPoint.meter},2,0,30,0,0`;
+      inherited = `\n${t+dt},${-100/exportSpeed},${currentTimingPoint.meter},2,0,30,0,0`;
     }else{
       // console.log(exportSpeed, t);
       // something 0.01x (100) or 10x (0.1) that we can reach
       const coef = 0.1;//Math.max(0.1, Math.random()*100);
-      let bpm = Math.min(Math.max(project.speed[t], 0.0001), 100+0*14000) * baseBpm  * coef; // speed = bpm/baseBpm ;; bpm = speed * base BPM
-      if(project.speed[t] >= 200){
+      const MAX_SPEED = 1000;
+      let bpm = Math.min(Math.max(project.speed[t], 0.0001), MAX_SPEED) * baseBpm  * coef; // speed = bpm/baseBpm ;; bpm = speed * base BPM
+      if(project.speed[t] > MAX_SPEED){
         if(spike) continue;
         bpm = 10000;
         spike = true;
@@ -257,8 +259,8 @@ function encode(project){
       // const sv = SP / (SP * baseBpm * coef) * baseBpm = 1/ coef;
       const sv = 1 / coef;
       if(sv < 0.01 || sv > 10) console.warn("bruh wtf", bpm, coef, sv, t);
-      uninherited = `\n${t},${60000/bpm},${currentTimingPoint.meter},2,0,30,1,${showLine?0:8}`;
-      inherited = `\n${t},${-100/sv},${currentTimingPoint.meter},2,0,30,0,0`;
+      uninherited = `\n${t+dt},${60000/bpm},${currentTimingPoint.meter},2,0,30,1,${showLine?0:8}`;
+      inherited = `\n${t+dt},${-100/sv},${currentTimingPoint.meter},2,0,30,0,0`;
       bpmChanged = true;
     }
     // if(uninherited) bpmChanged = true;
@@ -270,9 +272,9 @@ function encode(project){
     // TODO: export other properties of hitobject
     let x = 0|((512/m.Difficulty.CircleSize)*(0.5+note.x));
     let t = 0|note.t;
-    let tail = note instanceof LongNote ? `128,0,${note.t$}:` : '1,0,';
+    let tail = note instanceof LongNote ? `128,0,${note.t$+dt}:` : '1,0,';
     let hitSample = '0:0:0:0:';
-    return `${x},192,${t},${tail}${hitSample}`;
+    return `${x},192,${t+dt},${tail}${hitSample}`;
   }).join('\n');
   return raw;
 }
