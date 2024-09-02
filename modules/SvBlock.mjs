@@ -150,8 +150,11 @@ class SvBlock {
       }
       case SvBlock.Operation.LOAD: {
         const segment = SvBlock.Captures[this.func.params[1]];
-        for(let t = start; t < end; t ++) {
-          velocityArray[t] = segment[(t - start) % segment.length];
+        if (segment === undefined || !segment) console.warn("undefined load!!", this);
+        else {
+          for(let t = start; t < end; t ++) {
+            velocityArray[t] = segment[(t - start) % segment.length];
+          }
         }
         return velocityArray; // just exit early
       }
