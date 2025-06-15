@@ -24,6 +24,17 @@ function normalizeProjectExport(){
   // }, 500);
 }
 
+/**
+ * Decodes timestamp to milliseconds since start, returns null if failed.
+ * @param {string} s in the form MM:SS:sss.*
+ */
+function decodeTime(s) {
+  const ret = s.match(/^\s*(\d{2}):(\d{2}):(\d{3}).*$/);
+  if (!ret) return null;
+  const [_, min, sec, ms] = ret;
+  return 60000 * +min + 1000 * +sec + +ms;
+}
+
 // function exportProjectCopy(){
 //   project.blocks.splice(1)
 //   exportProject();
@@ -51,6 +62,13 @@ window.addEventListener('load', () => {
     {
       name: "Export sf",
       callback: () => exportProject('editorCodec'),
+    },
+    {
+      name: "Goto",
+      callback: async () => {
+        let t = decodeTime(await window.navigator.clipboard.readText());
+        if (!isNaN(t)) project.editor.setTime(t);
+      },
     },
   ];
   const container = document.createElement("div");
